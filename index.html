@@ -99,6 +99,13 @@
 .user-ev-row:hover .user-ev-del{opacity:0.7}
 .user-ev-del:hover{opacity:1!important}
 
+/* SLOT ROWS — always visible hiru/yoru rows */
+.slot-row{display:flex;align-items:flex-start;gap:3px;padding:1px 0;min-height:18px}
+.slot-icon{flex-shrink:0;margin-top:3px}
+.slot-evs{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+.slot-add-btn{background:none;border:none;color:var(--color-text-secondary);opacity:0.25;cursor:pointer;font-size:10px;padding:1px 2px;line-height:1;align-self:flex-start}
+.slot-add-btn:hover{opacity:1;color:#1D9E75}
+
 /* ADD ROW */
 .add-row{display:flex;align-items:center;gap:3px;padding:2px 0 2px 44px;min-height:22px}
 .add-icon-sel{display:flex;align-items:center;gap:2px;cursor:pointer;border:none;border-bottom:1px solid var(--color-border-secondary);background:transparent;padding:0 2px;font-size:10px}
@@ -360,6 +367,20 @@ function doLogin(){
   if(u[e]&&u[e].pass===p){currentUser=e;loginOk(u[e].name);}
   else{document.getElementById('loginErr').style.display='block'}
 }
+function initBaseEventsForUser(){
+  // RAWデータをユーザーデータに初期ロード（初回のみ）
+  const ud=getUserData();
+  if(ud['_base_initialized'])return;
+  Object.keys(baseEvMap).forEach(key=>{
+    if(!ud['ev_'+key])ud['ev_'+key]=[];
+    baseEvMap[key].forEach(ev=>{
+      ud['ev_'+key].push({title:ev.title,time:ev.time,cat:ev.cat});
+    });
+  });
+  ud['_base_initialized']=true;
+  saveUserData(ud);
+}
+
 function loginOk(name){
   if(currentUser)localStorage.setItem('cal_session',JSON.stringify({email:currentUser,name:name}));
   document.getElementById('avatarLabel').textContent=name.charAt(0);
@@ -368,7 +389,9 @@ function loginOk(name){
   document.getElementById('calScreen').classList.add('active');
   const saved=localStorage.getItem('cal_last_updated');
   if(saved){const d=new Date(saved);document.getElementById('headerUpdated').textContent=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
-  currentYear=new Date().getFullYear();updateYearLabel();buildCal();
+  currentYear=new Date().getFullYear();updateYearLabel();
+  initBaseEventsForUser();
+  buildCal();
   setTimeout(scrollToToday,100);
 }
 function doLogout(){
@@ -415,61 +438,53 @@ function buildCal(){
     if(unavail)cls+=' unavail';
     if(isToday)cls+=' today';
 
-    const baseEvs=baseEvMap[key]||[];
     const userEvs=(ud['ev_'+key])||[];
     const chks=(ud['chk_'+key])||[false,false,false];
-    const hasAnyEv=(baseEvs.length+userEvs.length)>0;
+
+    // 昼・夜に分類
+    const hiruEvs=[];const yoruEvs=[];
+    userEvs.forEach((ev,ui)=>{
+      if(isNightTime(ev.time))yoruEvs.push({...ev,_ui:ui});
+      else hiruEvs.push({...ev,_ui:ui});
+    });
+
+    function renderSlotEvRow(ev){
+      const ui=ev._ui;
+      const catVal=ev.cat||'';
+      const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
+      const catOpts='<option value="">--</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
+      const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      return `<div class="user-ev-row" data-evkey="${key}" data-evui="${ui}">
+        <select class="user-ev-time-sel" data-field="time">${buildTimeOptions(ev.time||'')}</select>
+        <select class="${catCls}" data-field="cat">${catOpts}</select>
+        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="タイトル">
+        <button class="user-ev-del" data-del="1">✕</button>
+      </div>`;
+    }
 
     let evHtml='';
+    // 昼スロット行（常時表示）
+    evHtml+=`<div class="slot-row"><span class="ev-icon ev-icon-hiru slot-icon"></span><div class="slot-evs">`;
+    hiruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev);});
+    evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="hiru" title="昼の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
+    evHtml+=`</div></div>`;
+    // 夜スロット行（常時表示）
+    evHtml+=`<div class="slot-row"><span class="ev-icon ev-icon-yoru slot-icon"></span><div class="slot-evs">`;
+    yoruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev);});
+    evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="yoru" title="夜の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
+    evHtml+=`</div></div>`;
 
-    // 昼上・夜下: baseEvs と userEvs を時刻でソート(空=末尾)して統合描画
-    // base events をオブジェクト化して混在ソート
-    const hiruEvs=[];const yoruEvs=[];
-    baseEvs.forEach(ev=>{
-      if(isNightTime(ev.time))yoruEvs.push({...ev,_type:'base'});
-      else hiruEvs.push({...ev,_type:'base'});
-    });
-    // 重要: _ui は userEvs 配列の元インデックスを使う（ソート後もズレない）
-    userEvs.forEach((ev,ui)=>{
-      if(isNightTime(ev.time))yoruEvs.push({...ev,_type:'user',_ui:ui});
-      else hiruEvs.push({...ev,_type:'user',_ui:ui});
-    });
-    const sortedEvs=[...hiruEvs,...yoruEvs];
-
-    sortedEvs.forEach(ev=>{
-      if(ev._type==='base'){
-        const catHtml=ev.cat?`<span class="ev-cat cat-${ev.cat}">${ev.cat.toUpperCase()}</span>`:'<span class="ev-cat" style="opacity:0"></span>';
-        evHtml+=`<div class="ev-row">${timeIconEl(ev.time)}<span class="ev-time">${ev.time||''}</span>${catHtml}<span class="ev-title">${ev.title}</span></div>`;
-      } else {
-        const ui=ev._ui;
-        const catVal=ev.cat||'';
-        const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
-        const catOpts='<option value="">--</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
-        const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-        evHtml+=`<div class="user-ev-row" data-evkey="${key}" data-evui="${ui}">
-          ${timeIconEl(ev.time)}
-          <select class="user-ev-time-sel" data-field="time">${buildTimeOptions(ev.time||'')}</select>
-          <select class="${catCls}" data-field="cat">${catOpts}</select>
-          <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="タイトル">
-          <button class="user-ev-del" data-del="1">✕</button>
-        </div>`;
-      }
-    });
-
-    // add-row は day-row 直下に配置済み（evHtml には含めない）
-
-    // checks col — only show if there are events
-    const chkHtml=hasAnyEv?`<div class="checks-col">
+    // checks col — always show
+    const chkHtml=`<div class="checks-col">
       <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[0]?'checked':''} data-chkkey="${key}" data-chkidx="0"></div>
       <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[1]?'checked':''} data-chkkey="${key}" data-chkidx="1"></div>
       <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[2]?'checked':''} data-chkkey="${key}" data-chkidx="2"></div>
-    </div>`:'<div class="checks-col"></div>';
+    </div>`;
 
     html+=`<div class="${cls}" id="day-${key}">
       <div class="day-header">
         <div class="day-num"><span class="dnum">${cur.getDate()}</span><span class="dwk">${DOW[dow]}</span></div>
         <div class="events-col">${evHtml}</div>
-        <div class="add-col"><button class="show-add-btn" data-addkey="${key}" title="追加"><i class="ti ti-plus" style="font-size:10px"></i></button></div>
         ${chkHtml}
       </div>
       <div class="add-row" id="addrow-${key}" style="display:none">
@@ -516,6 +531,13 @@ document.addEventListener('DOMContentLoaded', function(){
     // 追加キャンセル
     const cancelBtn = t.closest('[data-addcancel]');
     if(cancelBtn){ cancelAdd(cancelBtn.dataset.addcancel); return; }
+    // スロット追加ボタン（昼/夜直接追加）
+    const slotAddBtn = t.closest('.slot-add-btn');
+    if(slotAddBtn){
+      const skey=slotAddBtn.dataset.slotkey;
+      const stype=slotAddBtn.dataset.slottype;
+      addSlotEv(skey,stype); return;
+    }
     // ユーザー予定削除
     const delBtn = t.closest('[data-del]');
     if(delBtn){
@@ -592,6 +614,18 @@ function saveNote(mk,val){
   const ud=getUserData();ud['note_'+mk]=val;saveUserData(ud);touchUpdated();
 }
 
+function addSlotEv(key,slottype){
+  const ud=getUserData();
+  if(!ud['ev_'+key])ud['ev_'+key]=[];
+  const defaultTime=slottype==='hiru'?'13:00':'21:00';
+  ud['ev_'+key].push({title:'',time:defaultTime,cat:''});
+  saveUserData(ud);touchUpdated();buildCal();
+  // フォーカスを新しく追加した行のタイトル入力に当てる
+  setTimeout(()=>{
+    const rows=document.querySelectorAll(`[data-evkey="${key}"] .user-ev-title`);
+    if(rows.length)rows[rows.length-1].focus();
+  },50);
+}
 function showAddRow(key){
   document.getElementById('addrow-'+key).style.display='flex';
   document.getElementById('atl-'+key).focus();
