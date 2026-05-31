@@ -1,4 +1,5 @@
 <link rel="icon" type="image/png" href="favicon.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 .app{max-width:680px;margin:0 auto;font-family:var(--font-sans);font-size:13px;color:var(--color-text-primary);background:var(--color-background-tertiary)}
@@ -176,6 +177,8 @@
       <button class="year-nav-btn" onclick="changeYear(1)">&#8250;</button>
     </div>
     <button class="today-btn" onclick="scrollToToday()">今日</button>
+    <button class="today-btn" onclick="document.getElementById('xlsxInput').click()" title="スプレッドシートから予定を取り込む">📥取込</button>
+    <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
     <button class="logout-btn" onclick="doLogout()"><i class="ti ti-logout"></i></button>
     <div class="avatar" id="avatarLabel">？</div>
   </div>
@@ -368,20 +371,6 @@ function doLogin(){
   if(u[e]&&u[e].pass===p){currentUser=e;loginOk(u[e].name);}
   else{document.getElementById('loginErr').style.display='block'}
 }
-function initBaseEventsForUser(){
-  // RAWデータをユーザーデータに初期ロード（初回のみ）
-  const ud=getUserData();
-  if(ud['_base_initialized'])return;
-  Object.keys(baseEvMap).forEach(key=>{
-    if(!ud['ev_'+key])ud['ev_'+key]=[];
-    baseEvMap[key].forEach(ev=>{
-      ud['ev_'+key].push({title:ev.title,time:ev.time,cat:ev.cat});
-    });
-  });
-  ud['_base_initialized']=true;
-  saveUserData(ud);
-}
-
 function loginOk(name){
   if(currentUser)localStorage.setItem('cal_session',JSON.stringify({email:currentUser,name:name}));
   document.getElementById('avatarLabel').textContent=name.charAt(0);
@@ -391,7 +380,6 @@ function loginOk(name){
   const saved=localStorage.getItem('cal_last_updated');
   if(saved){const d=new Date(saved);document.getElementById('headerUpdated').textContent=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
   currentYear=new Date().getFullYear();updateYearLabel();
-  initBaseEventsForUser();
   buildCal();
   setTimeout(scrollToToday,100);
 }
@@ -445,6 +433,8 @@ function buildCal(){
     // 昼・夜に分類（空エントリは昼扱い）
     const hiruEvs=[];const yoruEvs=[];
     userEvs.forEach((ev,ui)=>{
+      // 空エントリ（time/title/catが全て空）はスキップ（仮行として別途表示）
+      if(!ev.time&&!ev.title&&!ev.cat)return;
       if(isNightTime(ev.time))yoruEvs.push({...ev,_ui:ui});
       else hiruEvs.push({...ev,_ui:ui});
     });
@@ -597,8 +587,20 @@ document.addEventListener('DOMContentLoaded', function(){
     const row = t.closest('.user-ev-row');
     if(row){
       const key = row.dataset.evkey;
-      const ui = parseInt(row.dataset.evui);
       const field = t.dataset.field;
+      // 仮行の場合は新規エントリを作成してから更新
+      if(row.dataset.virt){
+        const slottype=row.dataset.virt;
+        const ud=getUserData();
+        if(!ud['ev_'+key])ud['ev_'+key]=[];
+        const newEntry={time:'',cat:'',title:''};
+        newEntry[field]=t.value;
+        ud['ev_'+key].push(newEntry);
+        saveUserData(ud);touchUpdated();buildCal();
+        return;
+      }
+      const ui = parseInt(row.dataset.evui);
+      if(isNaN(ui))return;
       if(field === 'cat') updateUserEvCat(key, ui, t);
       else if(field) updateUserEv(key, ui, field, t.value);
     }
@@ -609,7 +611,13 @@ document.addEventListener('DOMContentLoaded', function(){
     const t = e.target;
     const row = t.closest('.user-ev-row');
     if(row && t.dataset.field === 'title'){
-      updateUserEv(row.dataset.evkey, parseInt(row.dataset.evui), 'title', t.value);
+      // 仮行の場合は新規エントリを作成
+      if(row.dataset.virt){
+        // blurで保存するため入力中は保存しない（buildCalしない）
+        return;
+      }
+      const ui=parseInt(row.dataset.evui);
+      if(!isNaN(ui))updateUserEv(row.dataset.evkey, ui, 'title', t.value);
     }
   });
 
@@ -617,6 +625,20 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('keydown', function(e){
     if(e.target.dataset.addinput){
       addRowKey(e, e.target.dataset.addinput);
+    }
+  });
+
+  // blur（仮行のタイトル入力で保存）
+  document.addEventListener('focusout', function(e){
+    const t = e.target;
+    if(t.dataset.field !== 'title') return;
+    const row = t.closest('.user-ev-row');
+    if(row && row.dataset.virt && t.value.trim()){
+      const key = row.dataset.evkey;
+      const ud=getUserData();
+      if(!ud['ev_'+key])ud['ev_'+key]=[];
+      ud['ev_'+key].push({time:'',cat:'',title:t.value.trim()});
+      saveUserData(ud);touchUpdated();buildCal();
     }
   });
 });
@@ -649,17 +671,23 @@ function saveNote(mk,val){
 function addSlotEv(key,slottype){
   const ud=getUserData();
   if(!ud['ev_'+key])ud['ev_'+key]=[];
+  // 実エントリ（空でないもの）のみカウント
+  const realEvs=ud['ev_'+key].filter(ev=>ev.time||ev.title||ev.cat);
+  const inSlot=realEvs.filter(ev=>slottype==='yoru'?isNightTime(ev.time):!isNightTime(ev.time));
+  // 仮行がある（実エントリなし）場合はフォーカスだけ
+  if(inSlot.length===0){
+    setTimeout(()=>{
+      const rows=document.querySelectorAll(`[data-evkey="${key}"][data-virt="${slottype}"] .user-ev-title`);
+      if(rows.length)rows[0].focus();
+    },50);
+    return;
+  }
+  // 空エントリを追加してbuildCal
   ud['ev_'+key].push({title:'',time:'',cat:''});
   saveUserData(ud);touchUpdated();buildCal();
-  // フォーカスを新しく追加した行のタイトル入力に当てる
   setTimeout(()=>{
-    const newUi=ud['ev_'+key].length-1;
-    const newRow=document.querySelector(`[data-evkey="${key}"][data-evui="${newUi}"] .user-ev-title`);
-    if(newRow)newRow.focus();
-    else{
-      const rows=document.querySelectorAll(`[data-evkey="${key}"] .user-ev-title`);
-      if(rows.length)rows[rows.length-1].focus();
-    }
+    const allRows=document.querySelectorAll(`[data-evkey="${key}"] .user-ev-title`);
+    if(allRows.length)allRows[allRows.length-1].focus();
   },80);
 }
 function showAddRow(key){
@@ -691,6 +719,7 @@ function confirmAdd(key){
   saveUserData(ud);touchUpdated();buildCal();
 }
 function updateUserEv(key,ui,field,val){
+  if(isNaN(ui)||ui<0)return;
   const ud=getUserData();
   if(!ud['ev_'+key]||ud['ev_'+key][ui]===undefined)return;
   ud['ev_'+key][ui][field]=val;
@@ -724,6 +753,69 @@ function deleteUserEv(key,ui){
   if(!ud['ev_'+key])return;
   ud['ev_'+key].splice(ui,1);
   saveUserData(ud);touchUpdated();buildCal();
+}
+
+// ===== スプレッドシートから予定を取り込む =====
+// スプレッドシート形式:
+// B列: 日付シリアル値（例: 46388）
+// C列: 曜日（無視）
+// D列: 時刻1（例: "21:00"）
+// E列: カテゴリ1（vc/tx/vt/pl）
+// F列: タイトル1
+// G列: 時刻2（2件目）
+// H列: カテゴリ2
+// I列: タイトル2
+// ※ 続きはJ,K,L, M,N,O... と3列ずつ
+function importFromXlsx(input){
+  const file=input.files[0];
+  if(!file){return;}
+  input.value=''; // reset for re-import
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      let importCount=0;
+      const ud=getUserData();
+      const SERIAL_O=new Date(1899,11,30);
+      rows.forEach(row=>{
+        // B列(index1)にシリアル値があり、数値の場合のみ処理
+        const serial=row[1];
+        if(typeof serial!=='number'||serial<40000||serial>60000)return;
+        // 日付を計算
+        const d=new Date(SERIAL_O);d.setDate(d.getDate()+Math.round(serial));
+        const key=ymd(d);
+        // D列以降、3列ずつで予定を取得
+        const eventsToAdd=[];
+        for(let ci=3;ci<row.length;ci+=3){
+          const t=row[ci];const c=row[ci+1];const title=row[ci+2];
+          if(!title&&!t)continue;
+          const timeStr=t?String(t).trim():'';
+          const catStr=c?String(c).trim().toLowerCase():'';
+          const titleStr=title?String(title).trim():'';
+          if(!titleStr)continue;
+          // timeStrがhh:mm形式かチェック
+          const validTime=/^\d{1,2}:\d{2}$/.test(timeStr)?timeStr:'';
+          const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
+          eventsToAdd.push({time:validTime,cat:validCat,title:titleStr});
+        }
+        if(eventsToAdd.length===0)return;
+        if(!ud['ev_'+key])ud['ev_'+key]=[];
+        // 重複チェック（同タイトル・同時刻は追加しない）
+        eventsToAdd.forEach(newEv=>{
+          const dup=ud['ev_'+key].some(ex=>ex.title===newEv.title&&ex.time===newEv.time);
+          if(!dup){ud['ev_'+key].push(newEv);importCount++;}
+        });
+      });
+      saveUserData(ud);touchUpdated();buildCal();
+      alert(`${importCount}件の予定を取り込みました。`);
+    }catch(err){
+      alert('取込エラー: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // ===== 年切替 =====
