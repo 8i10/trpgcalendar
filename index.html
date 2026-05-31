@@ -1205,11 +1205,12 @@ function buildCalView(ud){
 
     const hiruHtml=hiruEvs.map(ev=>viewRow(ev,'hiru')).join('');
     const yoruHtml=yoruEvs.map(ev=>viewRow(ev,'yoru')).join('');
+    const divider=(hiruHtml&&yoruHtml)?`<div style="border-top:0.5px dotted rgba(0,0,0,0.07);margin:1px 0"></div>`:'';
 
     html+=`<div class="${cls}" id="day-${key}">
       <div class="day-header">
         <div class="day-num"><span class="dnum">${cur.getDate()}</span><span class="dwk">${DOW[dow]}</span></div>
-        <div class="events-col">${hiruHtml}${yoruHtml}</div>
+        <div class="events-col">${hiruHtml}${divider}${yoruHtml}</div>
       </div>
     </div>`;
     cur.setDate(cur.getDate()+1);
