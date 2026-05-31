@@ -220,7 +220,9 @@
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
     <div class="avatar" id="avatarLabel" onclick="toggleAvatarMenu(event)" style="cursor:pointer">？</div>
     <div id="avatarMenu" style="display:none;position:absolute;top:34px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:110px;overflow:hidden">
-      <div onclick="document.getElementById('xlsxInput').click();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📥 取込</div>
+      <div onclick="document.getElementById('xlsxInput').click();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📥 ファイル取込</div>
+      <div style="border-top:1px solid #eee;margin:0"></div>
+      <div onclick="closeAvatarMenu();importFromSpreadsheetUrl()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">🌐 URL取込</div>
       <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="openMemoPage();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📋 メモページ</div>
       <div style="border-top:1px solid #eee;margin:0"></div>
@@ -276,99 +278,338 @@ const HOLIDAYS={'2026-01-01':1,'2026-01-12':1,'2026-02-11':1,'2026-02-23':1,'202
 const UNAVAIL_SERIALS=new Set([46112,46113,46114,46115,46181,46182,46183,46184,46185,46186,46187,46188,46234]);
 
 const RAW=[
+  [45660,0.8958,'vc','しんでなんかないよ'],
+  [45663,0.875,'tx','Pharanoidollia#3'],
+  [45667,0.8958,'vc','What\'s under the dough?'],
+  [45669,0.8958,'vc','閏の心眼'],
+  [45670,0.875,'tx','Pharanoidollia#3'],
+  [45671,0.8958,'vc','What\'s under the dough?'],
+  [45672,0.8958,'vc','閏の心眼'],
+  [45673,0.8958,'vc','閏の心眼'],
+  [45675,0.8958,'vc','閏の心眼'],
+  [45676,0.8958,'vc','or Aufheben？'],
+  [45677,0.5417,'vc','君の忘れた星#01'],
+  [45677,0.875,'tx','Pharanoidollia#3'],
+  [45679,0.8958,'vc','閏の心眼'],
+  [45680,0.5417,'vc','君の忘れた星#01'],
+  [45681,0.8958,'vc','閏の心眼'],
+  [45684,0.5417,'vc','君の忘れた星#01'],
+  [45684,0.875,'tx','Pharanoidollia#3'],
+  [45688,0.875,'tx','Pharanoidollia#3'],
+  [45691,0.875,'tx','Pharanoidollia#3'],
+  [45692,0.5417,'vc','君の忘れた星#1'],
+  [45692,0.8958,'tx','ピリオド・アズール'],
+  [45693,0.8958,'tx','ピリオド・アズール'],
+  [45694,0.8958,'tx','ピリオド・アズール'],
+  [45695,0.8958,'vc','1000年の戀#1'],
+  [45696,0.5833,'vc','サモンファミリア♡リンカーネィション'],
+  [45696,0.8958,'vc','サモンファミリア♡リンカーネィション'],
+  [45698,0.875,'tx','Pharanoidollia#3'],
+  [45699,0.8958,'tx','ピリオド・アズール'],
+  [45700,0.8958,'tx','ピリオド・アズール'],
+  [45701,0.8958,'tx','ピリオド・アズール'],
+  [45703,0.5833,'vc','サモンファミリア♡リンカーネィション'],
+  [45703,0.8958,'vc','サモンファミリア♡リンカーネィション'],
+  [45704,0.8958,'vc','1000年の戀#1'],
+  [45705,0.875,'tx','Pharanoidollia#3'],
+  [45706,0.8958,'vc','サモンファミリア♡リンカーネィション'],
+  [45707,0.8958,'vc','サモンファミリア♡リンカーネィション'],
+  [45712,0.5833,'vc','サモンファミリア♡リンカーネィション'],
+  [45712,0.8958,'vc','溺遭#1'],
+  [45714,0.8958,'vc','アンノウン'],
+  [45720,0.5417,'vt','癪熱'],
+  [45720,0.875,'vt','癪熱'],
+  [45721,0.8958,'vc','神のち晴れ！'],
+  [45726,0.8958,'vc','Dear Flip-Flop#2'],
+  [45727,0.5417,'vc','君の忘れた星#1'],
+  [45727,0.8958,'vc','Dear Flip-Flop#2'],
+  [45733,0.5417,'vt','癪熱'],
+  [45733,0.8958,'vc','Dear Flip-Flop#2'],
+  [45735,0.8958,'vc','Dear Flip-Flop#2'],
+  [45736,0.8958,'vc','明けない夜を、君と歩けば'],
+  [45739,0.8958,'vt','Immortalis Morbus#1'],
+  [45740,0.8958,'vt','Immortalis Morbus#1'],
+  [45745,0.875,'vt','Immortalis Morbus#2'],
+  [45750,0.875,'tx','8分先で背中合わせ'],
+  [45754,0.9167,'vt','ヤドリギあやかし探偵社#2'],
+  [45760,0.8958,'vc','悉夢四#1'],
+  [45761,0.9167,'vt','ヤドリギあやかし探偵社#2'],
+  [45762,0.8958,'vc','悪魔の唇'],
+  [45764,0.8958,'vc','悪魔の唇'],
+  [45765,0.875,'vt','Immortalis Morbus#2'],
+  [45766,0.8958,'vc','俺がお前のお姫様ッ！#1'],
+  [45768,0.9167,'vt','ヤドリギあやかし探偵社#2'],
+  [45770,0.875,'tx','8分先で背中合わせ'],
+  [45771,0.8958,'vc','悪魔の唇'],
+  [45772,0.875,'tx','8分先で背中合わせ'],
+  [45775,0.8958,'vt','ヤドリギあやかし探偵社#2'],
+  [45777,0.875,'tx','8分先で背中合わせ'],
+  [45844,0.5417,'vc','紡命論とシンギュラリティー#2'],
+  [45844,0.875,'vc','紡命論とシンギュラリティー#2'],
+  [45851,0.5417,'tx','SINGULARITY REACTOR#7'],
+  [45851,0.875,'tx','SINGULARITY REACTOR#7'],
+  [45855,0.8958,'vc','1000年の戀#3'],
+  [45856,0.8958,'vc','1000年の戀#3'],
+  [45857,0.5417,'tx','SINGULARITY REACTOR#7'],
+  [45857,0.875,'tx','SINGULARITY REACTOR#7'],
+  [45858,0.5417,'tx','SINGULARITY REACTOR#7'],
+  [45858,0.875,'tx','SINGULARITY REACTOR#7'],
+  [45859,0.9167,'vc','楽演劇'],
+  [45860,0.9167,'vc','楽演劇'],
+  [45861,0.9167,'vc','楽演劇'],
+  [45868,0.9167,'vc','楽演劇'],
+  [45870,0.875,'vc','Immortalis Morbus#3'],
+  [45871,0.875,'vc','Immortalis Morbus#3'],
+  [45872,0.875,'vc','Immortalis Morbus#3'],
+  [45873,0.5417,'vc','ピリオド・アズール#1'],
+  [45875,0.8958,'vc','THESEUS'],
+  [45876,0.8958,'vc','THESEUS'],
+  [45878,0.8958,'vc','THESEUS'],
+  [45879,0.8958,'vc','THESEUS'],
+  [45880,0.8958,'vc','THESEUS'],
+  [45881,0.5833,'vc','楽演劇'],
+  [45881,0.8958,'vc','THESEUS'],
+  [45882,0.8958,'vc','THESEUS'],
+  [45883,0.8958,'vc','THESEUS'],
+  [45887,0.5417,'vc','ピリオド・アズール#1'],
+  [45888,0.9167,'vc','1000年の戀#2'],
+  [45889,0.9167,'vc','1000年の戀#2'],
+  [45890,0.9167,'vc','1000年の戀#2'],
+  [45892,0.9167,'vc','楽演劇'],
+  [45894,0.5417,'vc','ピリオド・アズール#1'],
+  [45897,0.875,'tx','異談-竹林-#1'],
+  [45898,0.875,'tx','異談-竹林-#1'],
+  [45901,0.8958,'vc','死に際に吼えるバニッシャー'],
+  [45902,0.8958,'vc','死に際に吼えるバニッシャー'],
+  [45904,0.8958,'vc','死に際に吼えるバニッシャー'],
+  [45906,0.5417,'vc','死に際に吼えるバニッシャー'],
+  [45906,0.8958,'vc','死に際に吼えるバニッシャー'],
+  [45912,0.875,'vc','怪刀伏悉#3'],
+  [45913,0.875,'tx','怜悧なる煙炎#1'],
+  [45919,0.875,'tx','怜悧なる煙炎#1'],
+  [45920,0.875,'tx','怜悧なる煙炎#1'],
+  [45923,0.875,'vc','202#1'],
+  [45924,0.875,'vc','202#1'],
+  [45925,0.875,'vc','202#1'],
+  [45926,0.875,'vc','202#1'],
+  [45927,0.5833,'vc','202#1'],
+  [45927,0.875,'vc','202#1'],
+  [45928,0.5833,'vc','202#1'],
+  [45928,0.875,'vc','202#1'],
+  [45930,0.875,'vc','202#1'],
+  [45933,0.875,'tx','怜悧なる煙炎#1'],
+  [45934,0.5833,'vc','Paranormal Crime#1'],
+  [45934,0.9167,'vc','Paranormal Crime#1'],
+  [45935,0.9167,'vc','Paranormal Crime#1'],
+  [45939,0.8958,'vc','東京四凶'],
+  [45940,0.8958,'vc','東京四凶'],
+  [45941,0.5833,'vc','Paranormal Crime#1'],
+  [45941,0.8958,'vc','東京四凶'],
+  [45947,0.875,'tx','怜悧なる煙炎#1'],
+  [45948,0.5833,'vc','Paranormal Crime#1'],
+  [45948,0.9167,'vc','Paranormal Crime#1'],
+  [45949,0.9167,'vc','Paranormal Crime#1'],
+  [45954,0.875,'tx','怜悧なる煙炎#1'],
+  [45955,0.5833,'vc','Paranormal Crime#1'],
+  [45955,0.9167,'vc','Paranormal Crime#1'],
+  [45956,0.9167,'vc','Paranormal Crime#1'],
+  [45957,0.8958,'vc','東京四凶'],
+  [45958,0.8958,'vc','東京四凶'],
+  [45960,0.8958,'vc','東京四凶'],
+  [45961,0.8958,'vc','東京四凶'],
+  [45964,0.8958,'vc','NUMERALS'],
+  [45967,0.8958,'vc','NUMERALS'],
+  [45968,0.8958,'','NUMERALS'],
+  [45970,0.5417,'vc','NUMERALS'],
+  [45970,0.8958,'vc','NUMERALS'],
+  [45971,0.8958,'vc','NUMERALS'],
+  [45972,0.8958,'vc','NUMERALS'],
+  [45974,0.8958,'vc','NUMERALS'],
+  [45983,0.8958,'vc','NUMERALS'],
+  [45991,0.5417,'vc','同じ空には昇れない。'],
+  [45991,0.8958,'vc','同じ空には昇れない。'],
+  [45992,0.8958,'vc','同じ空には昇れない。'],
   [46025,0.875,'vc','レプリカントの葬列#2'],
-  [46034,0.5416,'vc','Heartless dear color'],[46034,0.875,'vc','NEARLY NOT EQUAL#2'],
-  [46037,0.8958,'vc','ATHENA'],[46038,0.8958,'vc','ATHENA'],[46040,0.8958,'vc','ATHENA'],
-  [46041,0.9166,'vc','ATHENA'],[46043,0.8958,'vc','ATHENA'],[46045,0.8958,'vc','ATHENA'],
-  [46049,0.8958,'vc','ATHENA'],[46050,0.8958,'vc','ATHENA'],
+  [46034,0.5417,'vc','Heartless dear color'],
+  [46034,0.875,'vc','NEARLY NOT EQUAL#2'],
+  [46037,0.8958,'vc','ATHENA'],
+  [46038,0.8958,'vc','ATHENA'],
+  [46040,0.8958,'vc','ATHENA'],
+  [46041,0.9167,'vc','ATHENA'],
+  [46043,0.8958,'vc','ATHENA'],
+  [46045,0.8958,'vc','ATHENA'],
+  [46049,0.8958,'vc','ATHENA'],
+  [46050,0.8958,'vc','ATHENA'],
   [46059,0.875,'vt','MANIKISS なんかやるらしい'],
-  [46060,0.5416,'vt','MANIKISS'],[46060,0.875,'vt','MANIKISS'],
-  [46061,0.5416,'vc','破滅のアイリッド'],
-  [46063,0.875,'vt','MANIKISS'],[46064,0.875,'vt','MANIKISS'],[46065,0.875,'vt','MANIKISS'],
-  [46066,0.875,'vt','MANIKISS'],[46067,0.5416,'vt','MANIKISS'],[46067,0.875,'vt','MANIKISS'],
-  [46070,0.875,'vt','MANIKISS 後日会話'],[46073,0.875,'vt','バックスペース禁止シナリオ'],
-  [46084,0.8958,'tx','天泣の吟#1'],[46085,0.8958,'tx','天泣の吟#1'],[46087,0.8958,'tx','天泣の吟#1'],
-  [46090,0.875,'tx','傷果のしるし#1'],[46092,0.875,'tx','傷果のしるし#1'],
-  [46094,0.875,'tx','傷果のしるし#1'],[46095,0.875,'tx','傷果のしるし#1'],
-  [46097,0.875,'vt','Blood The painkiller'],[46098,0.875,'tx','吸血死'],
+  [46060,0.5417,'vt','MANIKISS'],
+  [46060,0.875,'vt','MANIKISS'],
+  [46061,0.5417,'vc','破滅のアイリッド'],
+  [46063,0.875,'vt','MANIKISS'],
+  [46064,0.875,'vt','MANIKISS'],
+  [46065,0.875,'vt','MANIKISS'],
+  [46066,0.875,'vt','MANIKISS'],
+  [46067,0.5417,'vt','MANIKISS'],
+  [46067,0.875,'vt','MANIKISS'],
+  [46070,0.875,'vt','MANIKISS　後日会話'],
+  [46073,0.875,'vt','バックスペース禁止シナリオ'],
+  [46084,0.8958,'tx','天泣の吟#1'],
+  [46085,0.8958,'tx','天泣の吟#1'],
+  [46087,0.8958,'tx','天泣の吟#1'],
+  [46090,0.875,'tx','傷果のしるし#1'],
+  [46092,0.875,'tx','傷果のしるし#1'],
+  [46094,0.875,'tx','傷果のしるし#1'],
+  [46095,0.875,'tx','傷果のしるし#1'],
+  [46097,0.875,'vt','Blood The painkiller'],
+  [46098,0.875,'tx','吸血死'],
   [46100,0.875,'vt','Blood The painkiller'],
-  [46101,0.5416,'vt','The Hog Game'],[46101,0.9375,'vc','この命が燃え尽き果てるまで'],
-  [46102,0.5416,'vc','この命が燃え尽き果てるまで'],[46102,0.8958,'vc','この命が燃え尽き果てるまで'],
-  [46104,0.5416,'tx','しぬから、たべてね。#1'],[46105,0.8958,'vc','この命が燃え尽き果てるまで'],
+  [46101,0.5417,'vt','The Hog Game'],
+  [46101,0.9375,'vc','この命が燃え尽き果てるまで'],
+  [46102,0.5417,'vc','この命が燃え尽き果てるまで'],
+  [46102,0.8958,'vc','この命が燃え尽き果てるまで'],
+  [46104,0.5417,'tx','しぬから、たべてね。#1'],
+  [46105,0.8958,'vc','この命が燃え尽き果てるまで'],
   [46107,0.875,'vt','お話は紅茶が冷めないうちに#1'],
-  [46108,0.5416,'tx','しぬから、たべてね。#1'],[46108,0.875,'vt','お話は紅茶が冷めないうちに#1'],
-  [46110,0.5416,'vt','The Hog Game#5'],[46110,0.875,'vt','The Hog Game#5'],
-  [46111,0.5416,'tx','しぬから、たべてね。#1'],
-  [46117,0.5416,'vc','星の降る夜'],
-  [46118,0.8958,'tx','塔葬の国#1'],[46119,0.8958,'tx','塔葬の国#1'],
-  [46123,0.875,'vc','MORTAL-COIL'],[46124,0.5416,'vc','MORTAL-COIL'],[46124,0.875,'vc','MORTAL-COIL'],
-  [46125,0.8958,'tx','塔葬の国#1'],[46126,0.8958,'tx','塔葬の国#1'],
+  [46108,0.5417,'tx','しぬから、たべてね。#1'],
+  [46108,0.875,'vt','お話は紅茶が冷めないうちに#1'],
+  [46110,0.5417,'vt','The Hog Game#5'],
+  [46110,0.875,'vt','The Hog Game#5'],
+  [46111,0.5417,'tx','しぬから、たべてね。#1'],
+  [46117,0.5417,'vc','星の降る夜'],
+  [46118,0.8958,'tx','塔葬の国#1'],
+  [46119,0.8958,'tx','塔葬の国#1'],
+  [46123,0.875,'vc','MORTAL-COIL'],
+  [46124,0.5417,'vc','MORTAL-COIL'],
+  [46124,0.875,'vc','MORTAL-COIL'],
+  [46125,0.8958,'tx','塔葬の国#1'],
+  [46126,0.8958,'tx','塔葬の国#1'],
   [46129,0.875,'vt','夢見るうさぎとプチパンケーキ'],
-  [46130,0.625,'vc','Paranormal Crime#1 DLC'],[46130,0.8958,'vc','Paranormal Crime#1 DLC'],
-  [46132,0.8958,'tx','塔葬の国#1'],[46133,0.8958,'tx','塔葬の国#1'],
+  [46130,0.625,'vc','Paranormal Crime#1　DLC'],
+  [46130,0.8958,'vc','Paranormal Crime#1　DLC'],
+  [46132,0.8958,'tx','塔葬の国#1'],
+  [46133,0.8958,'tx','塔葬の国#1'],
   [46136,0.8958,'vc','振鶴#1'],
-  [46137,0.5833,'vt','HO1とHO2が箱に詰められるだけ#1'],[46137,0.875,'vt','キの字のきのこに気をつけて'],
-  [46139,0.8958,'tx','塔葬の国#1'],[46140,0.8958,'tx','塔葬の国#1'],
-  [46142,0.875,'vc','阿吽の断'],[46143,0.875,'vc','ご注文は私でしょ！？'],
-  [46146,0.8958,'vc','SILLAGE#1'],[46147,0.5416,'vc','世界で一番お前が好きだ！'],
+  [46137,0.5833,'vt','HO1とHO2が箱に詰められるだけ#1'],
+  [46137,0.875,'vt','キの字のきのこに気をつけて'],
+  [46139,0.8958,'tx','塔葬の国#1'],
+  [46140,0.8958,'tx','塔葬の国#1'],
+  [46142,0.875,'vc','阿吽の断'],
+  [46143,0.875,'vc','ご注文は私でしょ！？'],
+  [46146,0.8958,'vc','SILLAGE#1'],
+  [46147,0.5417,'vc','世界で一番お前が好きだ！｜毛玉さん'],
   [46150,0.8958,'vc','kille killer killer'],
-  [46153,0.5416,'vc','リヴィング・アーツ#1'],[46153,0.8958,'tx','塔葬の国#1'],[46154,0.8958,'tx','塔葬の国#1'],
-  [46155,0.8958,'vc','kille killer killer'],[46156,0.8958,'vc','kille killer killer'],[46157,0.9166,'vc','kille killer killer'],
-  [46160,0.8958,'tx','塔葬の国#1'],[46161,0.8958,'tx','塔葬の国#1'],
-  [46162,0.875,'tx','あぶくにかえる'],[46163,0.875,'tx','あぶくにかえる'],
-  [46167,0.8958,'tx','塔葬の国#1'],[46168,0.8958,'tx','塔葬の国#1'],
-  [46169,0.8958,'vc','kille killer killer'],[46170,0.8958,'vc','kille killer killer'],
-  [46174,0.8958,'tx','塔葬の国#1'],[46175,0.8958,'tx','塔葬の国#1'],
-  [46176,0.8958,'vc','ビスポークランドでなにがあったか？'],[46178,0.8958,'vc','ビスポークランドでなにがあったか？'],
-  [46179,0.5416,'vc','ビスポークランドでなにがあったか？'],[46179,0.8958,'vc','ビスポークランドでなにがあったか？'],
-  [46180,0.5416,'vc','Immortalis Morbus#4'],[46180,0.875,'vc','Immortalis Morbus#4'],
-  [46181,0.8958,'tx','塔葬の国#1'],[46182,0.8958,'tx','塔葬の国#1'],
-  [46183,0.875,'vc','ヤゼル'],[46184,0.8958,'vc','あやまたず、催花雨'],
-  [46185,0.8958,'vc','あやまたず、催花雨'],[46186,0.8958,'vc','あやまたず、催花雨'],
-  [46188,0.8958,'tx','塔葬の国#1'],[46189,0.8958,'tx','塔葬の国#1'],
-  [46190,0.9166,'vc','天為武封#1'],[46191,0.9166,'vc','天為武封#1'],
+  [46153,0.5417,'vc','リヴィング・アーツ#1'],
+  [46153,0.8958,'tx','塔葬の国#1'],
+  [46154,0.8958,'tx','塔葬の国#1'],
+  [46155,0.8958,'vc','kille killer killer'],
+  [46156,0.8958,'vc','kille killer killer'],
+  [46157,0.9167,'vc','kille killer killer'],
+  [46160,0.8958,'tx','塔葬の国#1'],
+  [46161,0.8958,'tx','塔葬の国#1'],
+  [46162,0.875,'tx','あぶくにかえる'],
+  [46163,0.875,'tx','あぶくにかえる'],
+  [46167,0.8958,'tx','塔葬の国#1'],
+  [46168,0.8958,'tx','塔葬の国#1'],
+  [46169,0.8958,'vc','kille killer killer'],
+  [46170,0.8958,'vc','kille killer killer'],
+  [46174,0.8958,'tx','塔葬の国#1'],
+  [46175,0.8958,'tx','塔葬の国#1'],
+  [46176,0.8958,'vc','ビスポークランドでなにがあったか？'],
+  [46178,0.8958,'vc','ビスポークランドでなにがあったか？'],
+  [46179,0.5417,'vc','ビスポークランドでなにがあったか？'],
+  [46179,0.8958,'vc','ビスポークランドでなにがあったか？'],
+  [46180,0.5417,'vc','Immortalis Morbus#4'],
+  [46180,0.875,'vc','Immortalis Morbus#4'],
+  [46181,0.8958,'tx','塔葬の国#1'],
+  [46182,0.8958,'tx','塔葬の国#1'],
+  [46183,0.875,'vc','ヤゼル'],
+  [46184,0.8958,'vc','あやまたず、催花雨'],
+  [46185,0.8958,'vc','あやまたず、催花雨'],
+  [46186,0.8958,'vc','あやまたず、催花雨'],
+  [46188,0.8958,'tx','塔葬の国#1'],
+  [46189,0.8958,'tx','塔葬の国#1'],
+  [46190,0.9167,'vc','天為武封#1'],
+  [46191,0.9167,'vc','天為武封#1'],
   [46195,0.8958,'tx','塔葬の国#1'],
-  [46196,0.5416,'vc',"Grenadine Raisond'etre#2"],[46196,0.8958,'tx','塔葬の国#1'],
-  [46197,0.5416,'vc',"Grenadine Raisond'etre#2"],[46198,0.9166,'vc','天為武封#1'],
-  [46201,0.5416,'vc',"Grenadine Raisond'etre#2"],[46201,0.875,'vc',"Grenadine Raisond'etre#2"],
-  [46202,0.8958,'tx','塔葬の国#1'],[46203,0.8958,'tx','塔葬の国#1'],
-  [46204,0.5416,'vc','1000年の戀#3'],[46204,0.8958,'tx','塔葬の国#1'],
-  [46205,0.5416,'vc','1000年の戀#3'],[46205,0.8958,'tx','塔葬の国#1'],
-  [46206,0.5416,'vc','1000年の戀#3'],
-  [46207,0.5416,'vc','人形縢牢'],[46207,0.875,'vc','人形縢牢'],
-  [46209,0.875,'vc',"Grenadine Raisond'etre#1"],[46210,0.875,'vc',"Grenadine Raisond'etre#1"],
-  [46211,0.8958,'tx','塔葬の国#1'],[46212,0.8958,'tx','塔葬の国#1'],
-  [46213,0.875,'vc',"Grenadine Raisond'etre#1"],[46215,0.875,'vc',"Grenadine Raisond'etre#1"],
+  [46196,0.5417,'vc','Grenadine Raisond\'etre#2'],
+  [46196,0.8958,'tx','塔葬の国#1'],
+  [46197,0.5417,'vc','Grenadine Raisond\'etre#2'],
+  [46198,0.9167,'vc','天為武封#1'],
+  [46201,0.5417,'vc','Grenadine Raisond\'etre#2'],
+  [46201,0.875,'vc','Grenadine Raisond\'etre#2'],
+  [46202,0.8958,'tx','塔葬の国#1'],
+  [46203,0.8958,'tx','塔葬の国#1'],
+  [46204,0.5417,'vc','1000年の戀#3'],
+  [46204,0.8958,'tx','塔葬の国#1'],
+  [46205,0.5417,'vc','1000年の戀#3'],
+  [46205,0.8958,'tx','塔葬の国#1'],
+  [46206,0.5417,'vc','1000年の戀#3'],
+  [46207,0.5417,'vc','人形縢牢'],
+  [46207,0.875,'vc','人形縢牢'],
+  [46209,0.875,'vc','Grenadine Raisond\'etre#1'],
+  [46210,0.875,'vc','Grenadine Raisond\'etre#1'],
+  [46211,0.8958,'tx','塔葬の国#1'],
+  [46212,0.8958,'tx','塔葬の国#1'],
+  [46213,0.875,'vc','Grenadine Raisond\'etre#1'],
+  [46215,0.875,'vc','Grenadine Raisond\'etre#1'],
   [46217,0.875,'vc','君と謂う人間が持つ善の心の証明'],
-  [46218,0.8958,'tx','塔葬の国#1'],[46219,0.8958,'tx','塔葬の国#1'],
-  [46221,0.5416,'vc','特異点#1'],[46221,0.875,'vc','特異点#1'],
-  [46222,0.5416,'vc','特異点#1'],[46222,0.875,'vc','特異点#1'],
-  [46225,0.8958,'tx','塔葬の国#1'],[46226,0.8958,'tx','塔葬の国#1'],
-  [46227,0.5416,'vc','一喰即犯'],[46228,0.5416,'vc','感覚共有ぬいえっち！#1'],
+  [46218,0.8958,'tx','塔葬の国#1'],
+  [46219,0.8958,'tx','塔葬の国#1'],
+  [46221,0.5417,'vc','特異点#1'],
+  [46221,0.875,'vc','特異点#1'],
+  [46222,0.5417,'vc','特異点#1'],
+  [46222,0.875,'vc','特異点#1'],
+  [46225,0.8958,'tx','塔葬の国#1'],
+  [46226,0.8958,'tx','塔葬の国#1'],
+  [46227,0.5417,'vc','一喰即犯'],
+  [46228,0.5417,'vc','感覚共有ぬいえっち！#1'],
   [46232,0.8958,'tx','塔葬の国#1'],
-  [46239,0.875,'vt','惚れたが因果の果てまで'],[46240,0.875,'vt','惚れたが因果の果てまで'],[46241,0.875,'vt','惚れたが因果の果てまで'],
+  [46239,0.875,'vt','惚れたが因果の果てまで'],
+  [46240,0.875,'vt','惚れたが因果の果てまで'],
+  [46241,0.875,'vt','惚れたが因果の果てまで'],
   [46247,0.875,'vc','フォーリンフォール♥ETD！'],
   [46266,0.875,'tx','太空的悪食#1'],
-  [46268,0.8958,'tx','遺作のあなた'],[46269,0.8958,'tx','遺作のあなた'],
-  [46272,0.875,'tx','太空的悪食#1'],[46273,0.875,'tx','太空的悪食#1'],
-  [46274,0.8958,'tx','遺作のあなた'],[46275,0.8958,'tx','遺作のあなた'],[46276,0.8958,'tx','遺作のあなた'],
-  [46279,0.875,'tx','太空的悪食#1'],[46281,0.8958,'tx','遺作のあなた'],
-  [46287,0.8958,'tx','遺作のあなた'],[46291,0.8958,'tx','遺作のあなた'],[46292,0.8958,'tx','遺作のあなた'],
-  [46293,0.875,'tx','太空的悪食#1'],[46294,0.875,'tx','太空的悪食#1'],[46295,0.8958,'tx','遺作のあなた'],
-  [46296,0.9166,'vc','Paranormal Crime2#1 - 0'],[46297,0.9166,'vc','Paranormal Crime2#1 - 1'],
-  [46298,0.625,'vc','Paranormal Crime2#1 - 1'],[46298,0.9166,'vc','Paranormal Crime2#1 - 1'],
-  [46299,0.9166,'vc','Paranormal Crime2#1 - 1'],[46300,0.875,'tx','太空的悪食#1'],
-  [46304,0.9166,'vc','Paranormal Crime2#1 -2'],
-  [46305,0.625,'vc','Paranormal Crime2#1 -2'],[46305,0.9166,'vc','Paranormal Crime2#1 -2'],
-  [46306,0.625,'vc','Paranormal Crime2#1 -3'],[46306,0.9166,'vc','Paranormal Crime2#1 -3'],
-  [46307,0.875,'tx','太空的悪食#1'],[46308,0.875,'tx','太空的悪食#1'],
-  [46312,0.625,'vc','Paranormal Crime2#1 -4'],[46312,0.9166,'vc','Paranormal Crime2#1 -4'],
-  [46313,0.625,'vc','Paranormal Crime2#1 -5'],[46313,0.9166,'vc','Paranormal Crime2#1 -5'],
-  [46314,0.875,'tx','太空的悪食#1'],[46315,0.9166,'vc','Paranormal Crime2#1 -5'],
-  [46317,0.9166,'vc','Paranormal Crime2#1 - 6'],[46318,0.9166,'vc','Paranormal Crime2#1 - 6'],
-  [46319,0.625,'vc','Paranormal Crime2#1 - 6'],[46319,0.9166,'vc','Paranormal Crime2#1 - 6'],
-  [46321,0.875,'tx','太空的悪食#1'],[46322,0.875,'tx','太空的悪食#1'],
-  [46324,0.9166,'vc','Paranormal Crime2#1 - 予備'],[46325,0.9166,'vc','Paranormal Crime2#1 - 予備'],
+  [46268,0.8958,'tx','遺作のあなた'],
+  [46269,0.8958,'tx','遺作のあなた'],
+  [46272,0.875,'tx','太空的悪食#1'],
+  [46273,0.875,'tx','太空的悪食#1'],
+  [46274,0.8958,'tx','遺作のあなた'],
+  [46275,0.8958,'tx','遺作のあなた'],
+  [46276,0.8958,'tx','遺作のあなた'],
+  [46279,0.875,'tx','太空的悪食#1'],
+  [46281,0.8958,'tx','遺作のあなた'],
+  [46287,0.8958,'tx','遺作のあなた'],
+  [46291,0.8958,'tx','遺作のあなた'],
+  [46292,0.8958,'tx','遺作のあなた'],
+  [46293,0.875,'tx','太空的悪食#1'],
+  [46294,0.875,'tx','太空的悪食#1'],
+  [46295,0.8958,'tx','遺作のあなた'],
+  [46296,0.9167,'vc','Paranormal Crime2#1 - 0'],
+  [46297,0.9167,'vc','Paranormal Crime2#1 - 1'],
+  [46298,0.625,'vc','Paranormal Crime2#1 - 1'],
+  [46298,0.9167,'vc','Paranormal Crime2#1 - 1'],
+  [46299,0.9167,'vc','Paranormal Crime2#1 - 1'],
+  [46300,0.875,'tx','太空的悪食#1'],
+  [46304,0.9167,'vc','Paranormal Crime2#1 -2'],
+  [46305,0.625,'vc','Paranormal Crime2#1 -2'],
+  [46305,0.9167,'vc','Paranormal Crime2#1 -2'],
+  [46306,0.625,'vc','Paranormal Crime2#1 -3'],
+  [46306,0.9167,'vc','Paranormal Crime2#1 -3'],
+  [46307,0.875,'tx','太空的悪食#1'],
+  [46308,0.875,'tx','太空的悪食#1'],
+  [46312,0.625,'vc','Paranormal Crime2#1 -4'],
+  [46312,0.9167,'vc','Paranormal Crime2#1 -4'],
+  [46313,0.625,'vc','Paranormal Crime2#1 -5'],
+  [46313,0.9167,'vc','Paranormal Crime2#1 -5'],
+  [46314,0.875,'tx','太空的悪食#1'],
+  [46315,0.9167,'vc','Paranormal Crime2#1 -5'],
+  [46317,0.9167,'vc','Paranormal Crime2#1 - 6'],
+  [46318,0.9167,'vc','Paranormal Crime2#1 - 6'],
+  [46319,0.625,'vc','Paranormal Crime2#1 - 6'],
+  [46319,0.9167,'vc','Paranormal Crime2#1 - 6'],
+  [46321,0.875,'tx','太空的悪食#1'],
+  [46322,0.875,'tx','太空的悪食#1'],
+  [46324,0.9167,'vc','Paranormal Crime2#1 - 予備'],
+  [46325,0.9167,'vc','Paranormal Crime2#1 - 予備'],
 ];
 
 const baseEvMap={};
@@ -927,66 +1168,171 @@ function deleteUserEv(key,ui){
 }
 
 // ===== スプレッドシートから予定を取り込む =====
-// スプレッドシート形式:
-// B列: 日付シリアル値（例: 46388）
-// C列: 曜日（無視）
-// D列: 時刻1（例: "21:00"）
-// E列: カテゴリ1（vc/tx/vt/pl）
-// F列: タイトル1
-// G列: 時刻2（2件目）
-// H列: カテゴリ2
-// I列: タイトル2
-// ※ 続きはJ,K,L, M,N,O... と3列ずつ
+// スプレッドシート列構成:
+// A列: 日付シリアル値 または 日付文字列
+// B列: 時刻（小数 例:0.9167 または 文字列 例:"21:00"）
+// C列: カテゴリ（vc/tx/vt/pl）
+// D列: シナリオ名（タイトル）
+// ※ 2件目以降はE,F,G,H列 ... と4列ずつ
+
+// 時刻小数→"HH:MM"変換
+function timeValToStr(val){
+  if(val===null||val===undefined||val==='')return'';
+  const s=String(val).trim();
+  // すでにHH:MM形式
+  if(/^\d{1,2}:\d{2}$/.test(s))return s.padStart(5,'0').slice(0,5);
+  // 小数形式（0.9167など）
+  const num=parseFloat(s);
+  if(!isNaN(num)&&num>0&&num<1){
+    const mins=Math.round(num*1440);
+    return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+  }
+  return'';
+}
+
+// シリアル値または日付文字列→"YYYY-MM-DD"変換
+function cellToDateKey(val){
+  if(val===null||val===undefined||val==='')return null;
+  const num=Number(val);
+  if(!isNaN(num)&&num>40000&&num<60000){
+    // Excelシリアル値
+    const d=new Date(SERIAL_ORIGIN);d.setDate(d.getDate()+Math.round(num));
+    return ymd(d);
+  }
+  const s=String(val).trim();
+  // YYYY/MM/DD または YYYY-MM-DD
+  const m=s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  return null;
+}
+
+function importRows(rows){
+  let importCount=0;
+  const ud=getUserData();
+
+  // 列構成を自動検出
+  // 現在のスプレッドシート形式を確認:
+  // パターンA: [シリアル値, 時刻小数, カテゴリ, タイトル, 時刻2, カテゴリ2, タイトル2, ...]
+  // パターンB: [シリアル値, 曜日, 時刻, カテゴリ, タイトル, ...]（B列に曜日がある）
+  // → 自動判定: A列=シリアル値(数値)の後、次が数値(<1)なら時刻→パターンA
+  //             次が文字列なら曜日→パターンB
+
+  function detectStartCol(row){
+    // row[0]が日付(シリアル値or文字列)の場合、時刻が何列目かを探す
+    // row[1]が数値(0<x<1) or HH:MM文字列 → startCol=1
+    // row[1]が文字列(曜日など) → startCol=2を試す
+    if(row[1]===null||row[1]===undefined) return 1;
+    const v1=row[1];
+    if(typeof v1==='number' && v1>0 && v1<1) return 1; // 時刻小数
+    if(typeof v1==='string' && /^\d{1,2}:\d{2}$/.test(v1.trim())) return 1; // HH:MM
+    return 2; // 曜日などをスキップ
+  }
+
+  rows.forEach(row=>{
+    if(!row||row.length===0)return;
+    const key=cellToDateKey(row[0]);
+    if(!key)return;
+    const startCol=detectStartCol(row);
+    const eventsToAdd=[];
+    // startColから3列ずつ: [時刻, カテゴリ, タイトル]
+    for(let ci=startCol;ci<row.length;ci+=3){
+      const tVal=row[ci];
+      const cVal=row[ci+1]!==undefined?row[ci+1]:null;
+      const titleVal=row[ci+2]!==undefined?row[ci+2]:null;
+      const titleStr=titleVal?String(titleVal).trim():'';
+      if(!titleStr)continue;
+      const timeStr=timeValToStr(tVal);
+      const catStr=cVal?String(cVal).trim().toLowerCase():'';
+      const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
+      eventsToAdd.push({time:timeStr,cat:validCat,title:titleStr});
+    }
+    if(eventsToAdd.length===0)return;
+    if(!ud['ev_'+key])ud['ev_'+key]=[];
+    eventsToAdd.forEach(newEv=>{
+      const dup=ud['ev_'+key].some(ex=>ex.title===newEv.title&&ex.time===newEv.time);
+      if(!dup){ud['ev_'+key].push(newEv);importCount++;}
+    });
+  });
+  saveUserData(ud);touchUpdated();buildCal();
+  alert(`${importCount}件の予定を取り込みました。`);
+  return importCount;
+}
+
+// XLSXファイルから取り込み
 function importFromXlsx(input){
   const file=input.files[0];
   if(!file){return;}
-  input.value=''; // reset for re-import
+  input.value='';
   const reader=new FileReader();
   reader.onload=function(e){
     try{
       const data=new Uint8Array(e.target.result);
       const wb=XLSX.read(data,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-      let importCount=0;
-      const ud=getUserData();
-      const SERIAL_O=new Date(1899,11,30);
-      rows.forEach(row=>{
-        // B列(index1)にシリアル値があり、数値の場合のみ処理
-        const serial=row[1];
-        if(typeof serial!=='number'||serial<40000||serial>60000)return;
-        // 日付を計算
-        const d=new Date(SERIAL_O);d.setDate(d.getDate()+Math.round(serial));
-        const key=ymd(d);
-        // D列以降、3列ずつで予定を取得
-        const eventsToAdd=[];
-        for(let ci=3;ci<row.length;ci+=3){
-          const t=row[ci];const c=row[ci+1];const title=row[ci+2];
-          if(!title&&!t)continue;
-          const timeStr=t?String(t).trim():'';
-          const catStr=c?String(c).trim().toLowerCase():'';
-          const titleStr=title?String(title).trim():'';
-          if(!titleStr)continue;
-          // timeStrがhh:mm形式かチェック
-          const validTime=/^\d{1,2}:\d{2}$/.test(timeStr)?timeStr:'';
-          const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
-          eventsToAdd.push({time:validTime,cat:validCat,title:titleStr});
-        }
-        if(eventsToAdd.length===0)return;
-        if(!ud['ev_'+key])ud['ev_'+key]=[];
-        // 重複チェック（同タイトル・同時刻は追加しない）
-        eventsToAdd.forEach(newEv=>{
-          const dup=ud['ev_'+key].some(ex=>ex.title===newEv.title&&ex.time===newEv.time);
-          if(!dup){ud['ev_'+key].push(newEv);importCount++;}
-        });
-      });
-      saveUserData(ud);touchUpdated();buildCal();
-      alert(`${importCount}件の予定を取り込みました。`);
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+      importRows(rows);
     }catch(err){
       alert('取込エラー: '+err.message);
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// スプレッドシートURL（pubhtml）から直接取り込み
+// pubhtmlのURLを /pub?output=xlsx に変換してXLSXとして取得する
+async function importFromSpreadsheetUrl(){
+  const url=prompt(
+    'GoogleスプレッドシートのURLを入力してください\n\n' +
+    '例（pubhtmlのURL）:\n' +
+    'https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml\n\n' +
+    '※「ファイル→共有→ウェブに公開」で取得したURLをそのまま貼り付けてください'
+  );
+  if(!url||!url.trim())return;
+  try{
+    // pubhtmlのURLをxlsx出力URLに変換
+    // パターン: .../pubhtml?... → .../pub?output=xlsx
+    // または .../pubhtml → .../pub?output=xlsx
+    let xlsxUrl = url.trim();
+    // gid付きの場合: ?gid=xxx&single=true など
+    const gidMatch = xlsxUrl.match(/[?&]gid=(\d+)/);
+    const gid = gidMatch ? gidMatch[1] : null;
+    // pubhtmlをpubに変換
+    xlsxUrl = xlsxUrl.replace(/\/pubhtml(\?.*)?$/, '/pub');
+    // output=xlsx を付与
+    xlsxUrl += (xlsxUrl.includes('?') ? '&' : '?') + 'output=xlsx';
+    if(gid && !xlsxUrl.includes('gid=')) xlsxUrl += '&gid=' + gid;
+
+    const res = await fetch(xlsxUrl);
+    if(!res.ok) throw new Error('スプレッドシートの取得に失敗しました ('+res.status+'）\nURLを確認してください');
+    const buf = await res.arrayBuffer();
+    const data = new Uint8Array(buf);
+    const wb = XLSX.read(data, {type:'array', raw:true});
+
+    // シート選択: gid指定がある場合は対応シートを探す、なければ最初のシート
+    let sheetName = wb.SheetNames[0];
+    if(gid){
+      // SheetJSのPropsにsheetIdが入る場合がある
+      for(const sn of wb.SheetNames){
+        const ws = wb.Sheets[sn];
+        if(ws['!sheetId'] && String(ws['!sheetId']) === gid){ sheetName = sn; break; }
+      }
+    }
+    const ws = wb.Sheets[sheetName];
+    // raw:true で数値はそのまま（シリアル値・小数が正確に取れる）
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+    if(!rows || rows.length===0){ alert('データが見つかりませんでした。\nシートが空か、URLが正しくない可能性があります。'); return; }
+
+    // デバッグ: 最初の3行をコンソールに出力
+    console.log('[取込] シート名:', sheetName, '行数:', rows.length);
+    console.log('[取込] 1行目:', rows[0]);
+    console.log('[取込] 2行目:', rows[1]);
+    console.log('[取込] 3行目:', rows[2]);
+
+    importRows(rows);
+  }catch(err){
+    alert('取込エラー: '+err.message+'\n\n※URLが「ウェブに公開」されたpubhtmlのURLかご確認ください');
+    console.error(err);
+  }
 }
 
 // ===== 共有・閲覧モード (GitHub Gist) =====
