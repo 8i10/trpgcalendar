@@ -103,7 +103,7 @@
 .slot-row{display:flex;align-items:flex-start;gap:3px;padding:1px 0;min-height:18px}
 .slot-icon{flex-shrink:0;margin-top:3px}
 .slot-evs{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
-.slot-add-btn{background:none;border:none;color:var(--color-text-secondary);opacity:0.25;cursor:pointer;font-size:10px;padding:1px 2px;line-height:1;align-self:flex-start}
+.slot-add-btn{background:none;border:none;color:var(--color-text-secondary);opacity:0.4;cursor:pointer;font-size:10px;padding:1px 2px;line-height:1;align-self:flex-start}
 .slot-add-btn:hover{opacity:1;color:#1D9E75}
 
 /* ADD ROW */
@@ -207,9 +207,9 @@ function timeIconEl(t){const cls=(!t||!isNightTime(t))?'ev-icon ev-icon-hiru':'e
 function buildTimeOptions(selected){
   let o='<option value="">--</option>';
   o+='<optgroup label="昼">';
-  HIRU_TIMES.forEach(t=>{o+=`<option value="${t}"${selected===t?' selected':''}>☀ ${t}</option>`;});
+  HIRU_TIMES.forEach(t=>{o+=`<option value="${t}"${selected===t?' selected':''}>${t}</option>`;});
   o+='</optgroup><optgroup label="夜">';
-  YORU_TIMES.forEach(t=>{o+=`<option value="${t}"${selected===t?' selected':''}>🌙 ${t}</option>`;});
+  YORU_TIMES.forEach(t=>{o+=`<option value="${t}"${selected===t?' selected':''}>${t}</option>`;});
   o+='</optgroup>';
   return o;
 }
@@ -454,7 +454,9 @@ function buildCal(){
       const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
       const catOpts='<option value="">--</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
       const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      const iconCls=(!ev.time||!isNightTime(ev.time))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';
       return `<div class="user-ev-row" data-evkey="${key}" data-evui="${ui}">
+        <span class="${iconCls}" data-evicon="1"></span>
         <select class="user-ev-time-sel" data-field="time">${buildTimeOptions(ev.time||'')}</select>
         <select class="${catCls}" data-field="cat">${catOpts}</select>
         <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="タイトル">
@@ -622,9 +624,14 @@ function addSlotEv(key,slottype){
   saveUserData(ud);touchUpdated();buildCal();
   // フォーカスを新しく追加した行のタイトル入力に当てる
   setTimeout(()=>{
-    const rows=document.querySelectorAll(`[data-evkey="${key}"] .user-ev-title`);
-    if(rows.length)rows[rows.length-1].focus();
-  },50);
+    const newUi=ud['ev_'+key].length-1;
+    const newRow=document.querySelector(`[data-evkey="${key}"][data-evui="${newUi}"] .user-ev-title`);
+    if(newRow)newRow.focus();
+    else{
+      const rows=document.querySelectorAll(`[data-evkey="${key}"] .user-ev-title`);
+      if(rows.length)rows[rows.length-1].focus();
+    }
+  },80);
 }
 function showAddRow(key){
   document.getElementById('addrow-'+key).style.display='flex';
