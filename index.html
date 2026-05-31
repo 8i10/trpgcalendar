@@ -176,6 +176,7 @@
       <button class="year-nav-btn" onclick="changeYear(1)">&#8250;</button>
     </div>
     <button class="today-btn" onclick="scrollToToday()">今日</button>
+    <button class="today-btn" onclick="publishView()" title="閲覧用URLを発行">🔗共有</button>
     <button class="today-btn" onclick="document.getElementById('xlsxInput').click()" title="スプレッドシートから予定を取り込む">📥取込</button>
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
     <div class="avatar" id="avatarLabel" onclick="doLogout()" title="ログアウト" style="cursor:pointer">？</div>
@@ -218,6 +219,7 @@ function buildTimeOptions(selected){
 
 // Auto-login
 window.addEventListener('load',function(){
+  if(VIEW_PARAM){initViewMode();return;}
   try{var s=JSON.parse(localStorage.getItem('cal_session')||'null');if(s&&s.email&&s.name){currentUser=s.email;loginOk(s.name);}}catch(e){}
 });
 
@@ -518,6 +520,7 @@ function buildCal(){
           <option value="vc">VC</option>
           <option value="tx">TX</option>
           <option value="vt">VT</option>
+          <option value="pl">PL</option>
         </select>
         <input class="add-title-in" type="text" id="atl-${key}" placeholder="タイトル…" data-addinput="${key}">
         <button class="add-confirm" data-addconfirm="${key}">追加</button>
@@ -817,12 +820,172 @@ function importFromXlsx(input){
   reader.readAsArrayBuffer(file);
 }
 
+// ===== 共有・閲覧モード =====
+const VIEW_PARAM=(new URLSearchParams(location.search)).get('view');
+
+async function publishView(){
+  const ud=getUserData();
+  // キー: ユーザーメールのハッシュっぽい文字列（固定キーで上書き更新）
+  const key='cal_view_'+btoa(currentUser).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
+  const payload=JSON.stringify({ud,ts:Date.now()});
+  try{
+    const result=await window.storage.set(key,payload,true);
+    if(!result){alert('保存に失敗しました');return;}
+    const url=location.origin+location.pathname+'?view='+key;
+    await navigator.clipboard.writeText(url).catch(()=>{});
+    showShareModal(url);
+  }catch(e){alert('エラー: '+e.message);}
+}
+
+function showShareModal(url){
+  let modal=document.getElementById('shareModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='shareModal';
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML=`<div style="background:#fff;border-radius:12px;padding:20px 24px;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">閲覧用URLを発行しました</div>
+      <div style="font-size:11px;color:#555;margin-bottom:10px">このURLを共有すると、ログイン不要で予定を閲覧できます。<br>予定を更新したら再度「🔗共有」を押してください。</div>
+      <input id="shareUrl" type="text" readonly style="width:100%;font-size:11px;padding:6px 8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;color:#222;background:#f9f9f9">
+      <button onclick="copyShareUrl()" style="margin-top:8px;width:100%;padding:7px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">URLをコピー</button>
+      <button onclick="document.getElementById('shareModal').style.display='none'" style="margin-top:6px;width:100%;padding:7px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:12px;cursor:pointer">閉じる</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.style.display='flex';
+  document.getElementById('shareUrl').value=url;
+}
+function copyShareUrl(){
+  const inp=document.getElementById('shareUrl');
+  inp.select();
+  navigator.clipboard.writeText(inp.value).catch(()=>document.execCommand('copy'));
+  const btn=inp.nextElementSibling;
+  btn.textContent='コピーしました ✓';
+  setTimeout(()=>{btn.textContent='URLをコピー';},2000);
+}
+
+// 閲覧モード初期化
+async function initViewMode(){
+  document.getElementById('loginScreen').style.display='none';
+  const cal=document.getElementById('calScreen');
+  cal.classList.add('active');
+  // ヘッダーを閲覧用に差し替え
+  const hdr=cal.querySelector('.header');
+  hdr.innerHTML=`<span class="header-updated" id="headerUpdated">閲覧モード</span>
+    <div class="year-nav">
+      <button class="year-nav-btn" onclick="changeYear(-1)">&#8249;</button>
+      <span class="year-nav-label" id="yearNavLabel">—</span>
+      <button class="year-nav-btn" onclick="changeYear(1)">&#8250;</button>
+    </div>
+    <button class="today-btn" onclick="scrollToToday()">今日</button>`;
+  // sticky月ヘッダーのアイコン列を非表示
+  const icons=cal.querySelector('.month-sticky-icons');
+  if(icons)icons.style.display='none';
+  try{
+    const result=await window.storage.get(VIEW_PARAM,true);
+    if(!result){
+      document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
+      return;
+    }
+    const data=JSON.parse(result.value);
+    currentYear=new Date().getFullYear();
+    updateYearLabel();
+    buildCalView(data.ud);
+    setTimeout(scrollToToday,100);
+    const ts=new Date(data.ts);
+    document.getElementById('headerUpdated').textContent=`更新: ${ts.getFullYear()}/${pad(ts.getMonth()+1)}/${pad(ts.getDate())} ${pad(ts.getHours())}:${pad(ts.getMinutes())}`;
+  }catch(e){
+    document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">読み込みエラー</div>';
+  }
+}
+
+// 閲覧専用buildCal（編集UI・チェックボックス・追加ボタンなし）
+function buildCalView(ud){
+  const startDate=new Date(currentYear,0,1);
+  const endDate=new Date(currentYear,11,31);
+  updateYearLabel();
+  let html='';
+  let prevMonth=-1;let prevMonthKey='';
+  let cur=new Date(startDate);
+  while(cur<=endDate){
+    const m=cur.getMonth();const y=cur.getFullYear();
+    const monthKey=`${y}-${pad(m+1)}`;
+    if(m!==prevMonth){
+      if(prevMonthKey){
+        const nv=(ud['note_'+prevMonthKey]||'');
+        if(nv)html+=`<div class="month-note-wrap"><div style="flex:1;font-size:11px;color:var(--color-text-secondary);padding:3px 0;white-space:pre-wrap">${nv.replace(/</g,'&lt;')}</div></div>`;
+      }
+      html+=`<div class="month-divider" data-month="${monthKey}">${y}年 ${MONTH_JP[m]}</div>`;
+      prevMonth=m;prevMonthKey=monthKey;
+    }
+    const key=ymd(cur);
+    const dow=cur.getDay();
+    const isHol=!!HOLIDAYS[key];
+    const serial=Math.round((cur-SERIAL_ORIGIN)/86400000);
+    const unavail=UNAVAIL_SERIALS.has(serial);
+    const isToday=key===TODAY;
+    const isPast=key<TODAY;
+    let cls='day-row';
+    if(dow===0||isHol)cls+=' sun';
+    else if(dow===6)cls+=' sat';
+    if(isHol)cls+=' holiday';
+    if(unavail)cls+=' unavail';
+    if(isToday)cls+=' today';
+    if(isPast)cls+=' past';
+
+    const userEvs=(ud['ev_'+key])||[];
+    const hiruEvs=[];const yoruEvs=[];
+    userEvs.forEach(ev=>{
+      if(!ev.time&&!ev.title&&!ev.cat)return;
+      if(isNightTime(ev.time))yoruEvs.push(ev);
+      else hiruEvs.push(ev);
+    });
+
+    function viewRow(ev,slottype){
+      const catVal=ev.cat||'';
+      const catCls=catVal?`ev-cat cat-${catVal}`:'ev-cat';
+      const iconCls=slottype==='yoru'?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
+      const catLabel=catVal?`<span class="${catCls}" style="font-size:9px;padding:0 3px;border-radius:5px;font-weight:700;width:22px;min-width:22px;text-align:center;line-height:14px">${catVal.toUpperCase()}</span>`:'<span style="width:22px;min-width:22px;display:inline-block"></span>';
+      return `<div style="display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px">
+        <span class="${iconCls}"></span>
+        <span style="font-size:10px;color:var(--color-text-secondary);width:32px;min-width:32px">${ev.time||''}</span>
+        ${catLabel}
+        <span style="flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(ev.title||'').replace(/</g,'&lt;')}</span>
+      </div>`;
+    }
+
+    const hiruHtml=(hiruEvs.length>0?hiruEvs:[{time:'',cat:'',title:''}]).map(ev=>viewRow(ev,'hiru')).join('');
+    const yoruHtml=(yoruEvs.length>0?yoruEvs:[{time:'',cat:'',title:''}]).map(ev=>viewRow(ev,'yoru')).join('');
+
+    html+=`<div class="${cls}" id="day-${key}">
+      <div class="day-header">
+        <div class="day-num"><span class="dnum">${cur.getDate()}</span><span class="dwk">${DOW[dow]}</span></div>
+        <div class="events-col">${hiruHtml}${yoruHtml}</div>
+      </div>
+    </div>`;
+    cur.setDate(cur.getDate()+1);
+  }
+  if(prevMonthKey){
+    const nv=(ud['note_'+prevMonthKey]||'');
+    if(nv)html+=`<div class="month-note-wrap"><div style="flex:1;font-size:11px;color:var(--color-text-secondary);padding:3px 0;white-space:pre-wrap">${nv.replace(/</g,'&lt;')}</div></div>`;
+  }
+  document.getElementById('calBody').innerHTML=html;
+  setupScrollSpy();
+}
+
 // ===== 年切替 =====
 let currentYear=new Date().getFullYear();
 function changeYear(delta){
   currentYear+=delta;
   document.getElementById('yearNavLabel').textContent=currentYear+'年';
-  buildCal();
+  if(VIEW_PARAM){
+    // 閲覧モード：再ロードせず再描画
+    window.storage.get(VIEW_PARAM,true).then(result=>{
+      if(result){const data=JSON.parse(result.value);buildCalView(data.ud);}
+    }).catch(()=>{});
+  } else {
+    buildCal();
+  }
 }
 function updateYearLabel(){
   document.getElementById('yearNavLabel').textContent=currentYear+'年';
