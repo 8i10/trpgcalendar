@@ -158,6 +158,7 @@
 .undecided-head{display:flex;align-items:center;gap:3px;padding:4px 6px;background:#1D9E75;border-radius:4px 4px 0 0;margin-top:6px}
 .undecided-head span{font-size:11px;font-weight:600;color:#fff;font-family:'Zen Kaku Gothic New',sans-serif;overflow:hidden;white-space:nowrap}
 .undecided-head .uh-scenario{flex:3.5}
+.undecided-head .uh-format{flex:1.4}
 .undecided-head .uh-kp{flex:1.2}
 .undecided-head .uh-pl{flex:2.5}
 .undecided-head .uh-memo{flex:2.8}
@@ -168,6 +169,9 @@
 .undecided-row input:focus{background:rgba(0,0,0,0.03)}
 .undecided-row input::placeholder{color:#ccc}
 .undecided-row .ui-scenario{flex:3.5}
+.undecided-row .ui-format{flex:1.4;border:none;background:transparent;font-size:9px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;color:#333;outline:none;padding:2px 2px;border-radius:3px;cursor:pointer;transition:background 0.1s}
+.undecided-row .ui-format:hover{background:rgba(0,0,0,0.03)}
+.undecided-row .ui-format:focus{background:rgba(0,0,0,0.03)}
 .undecided-row .ui-kp{flex:1.2}
 .undecided-row .ui-pl{flex:2.5}
 .undecided-row .ui-memo{flex:2.8}
@@ -706,15 +710,18 @@ function buildMemoPage(){
   let html='';
 
   // ── 日程未定 ──
-  const undecided=ud['undecided_rows']||[{scenario:'',kp:'',pl:'',memo:''}];
+  const undecided=ud['undecided_rows']||[{scenario:'',format:'',kp:'',pl:'',memo:''}];
   let rowsHtml='';
   undecided.forEach((row,i)=>{
     const sc=(row.scenario||'').replace(/"/g,'&quot;');
+    const fmt=row.format||'';
     const kp=(row.kp||'').replace(/"/g,'&quot;');
     const pl=(row.pl||'').replace(/"/g,'&quot;');
     const mo=(row.memo||'').replace(/"/g,'&quot;');
+    const fmtOpts=['','vc','vt','tx'].map(v=>`<option value="${v}"${fmt===v?' selected':''}>${v?v.toUpperCase():'--'}</option>`).join('');
     rowsHtml+=`<div class="undecided-row">
       <input class="ui-scenario" type="text" value="${sc}" placeholder="シナリオ名…" oninput="saveUndecided(${i},'scenario',this.value)">
+      <select class="ui-format" onchange="saveUndecided(${i},'format',this.value)">${fmtOpts}</select>
       <input class="ui-kp" type="text" value="${kp}" placeholder="KP…" oninput="saveUndecided(${i},'kp',this.value)">
       <input class="ui-pl" type="text" value="${pl}" placeholder="PL…" oninput="saveUndecided(${i},'pl',this.value)">
       <input class="ui-memo" type="text" value="${mo}" placeholder="メモ…" oninput="saveUndecided(${i},'memo',this.value)">
@@ -725,6 +732,7 @@ function buildMemoPage(){
     <div class="mp-card-title">＜日程未定＞</div>
     <div class="undecided-head">
       <span class="uh-scenario">シナリオ</span>
+      <span class="uh-format">形式</span>
       <span class="uh-kp">KP</span>
       <span class="uh-pl">PL</span>
       <span class="uh-memo">その他メモ</span>
@@ -776,15 +784,15 @@ function buildMemoPage(){
 
 function saveUndecided(i,field,val){
   const ud=getUserData();
-  if(!ud['undecided_rows'])ud['undecided_rows']=[{scenario:'',kp:'',pl:'',memo:''}];
-  if(!ud['undecided_rows'][i])ud['undecided_rows'][i]={scenario:'',kp:'',pl:'',memo:''};
+  if(!ud['undecided_rows'])ud['undecided_rows']=[{scenario:'',format:'',kp:'',pl:'',memo:''}];
+  if(!ud['undecided_rows'][i])ud['undecided_rows'][i]={scenario:'',format:'',kp:'',pl:'',memo:''};
   ud['undecided_rows'][i][field]=val;
   saveUserData(ud);touchUpdated();
 }
 function addUndecidedRow(){
   const ud=getUserData();
   if(!ud['undecided_rows'])ud['undecided_rows']=[];
-  ud['undecided_rows'].push({scenario:'',kp:'',pl:'',memo:''});
+  ud['undecided_rows'].push({scenario:'',format:'',kp:'',pl:'',memo:''});
   saveUserData(ud);touchUpdated();
   buildMemoPage();
 }
@@ -792,7 +800,7 @@ function deleteUndecidedRow(i){
   const ud=getUserData();
   if(!ud['undecided_rows']||ud['undecided_rows'].length<=1){
     // 最後の1行はクリアのみ
-    if(ud['undecided_rows'])ud['undecided_rows']=[{scenario:'',kp:'',pl:'',memo:''}];
+    if(ud['undecided_rows'])ud['undecided_rows']=[{scenario:'',format:'',kp:'',pl:'',memo:''}];
     saveUserData(ud);touchUpdated();buildMemoPage();return;
   }
   ud['undecided_rows'].splice(i,1);
