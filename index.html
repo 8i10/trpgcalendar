@@ -65,8 +65,13 @@
 .day-num::after{content:'';display:block;position:absolute;left:42px;top:0;bottom:0;width:2px}
 .day-row{position:relative}
 .day-row::before{content:'';position:absolute;left:42px;top:0;bottom:0;width:2px;background:#1D9E75;z-index:1}
-.day-row.sun::before,.day-row.holiday::before{background:#E24B4A}
-.day-row.sat::before{background:#378ADD}
+.day-row.past{background:#f5f5f5}
+.day-row.past .events-col{opacity:0.45}
+.day-row.past .day-num{background:#ebebeb!important}
+.day-row.past.sun .day-num,.day-row.past.holiday .day-num{background:#f3e8e8!important}
+.day-row.past.sat .day-num{background:#eaedf5!important}
+.day-row.past .dnum,.day-row.past .dwk{opacity:0.45}
+.day-row.past::before{opacity:0.25}
 
 /* EVENTS COL */
 .events-col{flex:1;padding:2px 5px;display:flex;flex-direction:column;gap:1px;min-width:0;padding-left:7px}
@@ -419,12 +424,14 @@ function buildCal(){
     const serial=Math.round((cur-SERIAL_ORIGIN)/86400000);
     const unavail=UNAVAIL_SERIALS.has(serial);
     const isToday=key===TODAY;
+    const isPast=key<TODAY;
     let cls='day-row';
     if(dow===0||isHol)cls+=' sun';
     else if(dow===6)cls+=' sat';
     if(isHol)cls+=' holiday';
     if(unavail)cls+=' unavail';
     if(isToday)cls+=' today';
+    if(isPast)cls+=' past';
 
     const userEvs=(ud['ev_'+key])||[];
     const chks=(ud['chk_'+key])||[];
