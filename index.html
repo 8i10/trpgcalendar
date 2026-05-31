@@ -1178,9 +1178,10 @@ function deleteUserEv(key,ui){
 function timeValToStr(val){
   if(val===null||val===undefined||val==='')return'';
   const s=String(val).trim();
-  if(/^\d{1,2}:\d{2}$/.test(s))return s.padStart(5,'0').slice(0,5);
+  // 文字列の時刻形式 "21:30" or "9:30"
+  if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(s))return s.substring(0,5).padStart(5,'0');
   const num=parseFloat(s);
-  if(!isNaN(num)&&num>0&&num<1){
+  if(!isNaN(num)&&num>=0&&num<1){
     const mins=Math.round(num*1440);
     return String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
   }
@@ -1279,47 +1280,49 @@ async function importFromSpreadsheetUrl(){
 function importSheetRows(rows){
   let importCount=0;
   const ud=getUserData();
-  let currentYear=null;
-  let currentMonth=null;
-  let currentDay=null;
   let currentKey=null;
 
   for(let i=0;i<rows.length;i++){
     const row=rows[i];
     if(!row||row.length===0)continue;
 
-    // 全列を文字列化して年月ヘッダーを探す（例: "2025/01", "2025年1月"）
-    for(let ci=0;ci<Math.min(row.length,12);ci++){
-      const v=row[ci];
-      if(!v)continue;
-      const s=String(v).trim();
-      // "2025/01" or "2025/1" or "2025年01月" など
-      const ym=s.match(/^(\d{4})[\/年](\d{1,2})[月\/]?$/);
-      if(ym){
-        currentYear=parseInt(ym[1]);
-        currentMonth=parseInt(ym[2]);
-        currentDay=null;
-        currentKey=null;
-        console.log('[取込] 年月検出:',currentYear,currentMonth);
-        break;
+    // B列(index1)の値でdateを判定
+    const bVal=row[1];
+
+    // Excelシリアル値(大きい数: 日付)の場合 → 日付キーを更新
+    if(typeof bVal==='number'&&bVal>40000&&bVal<70000){
+      const k=cellToDateKey(bVal);
+      if(k)currentKey=k;
+    }
+    // B列が1〜31の整数かつrow[1]が小数でない → 年月+日でキー生成（別形式スプレッドシート対応）
+    else if(typeof bVal==='number'&&Number.isInteger(bVal)&&bVal>=1&&bVal<=31){
+      // 年月をその行より前の行から探す
+      for(let pi=i-1;pi>=0&&pi>=i-5;pi--){
+        const pr=rows[pi];
+        if(!pr)continue;
+        for(let ci=0;ci<Math.min(pr.length,12);ci++){
+          const v=pr[ci];if(!v)continue;
+          const s=String(v).trim();
+          const ym=s.match(/^(\d{4})[\/年](\d{1,2})[月\/]?$/);
+          if(ym){
+            const mm=String(parseInt(ym[2])).padStart(2,'0');
+            const dd=String(bVal).padStart(2,'0');
+            currentKey=`${ym[1]}-${mm}-${dd}`;
+            break;
+          }
+        }
+        if(currentKey)break;
       }
     }
+    // B列が文字列の日付形式（例: "2025/01/03"）
+    else if(typeof bVal==='string'){
+      const m=bVal.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+      if(m)currentKey=`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    }
 
-    // B列(index1)に1〜31の整数があれば日付行
-    const bVal=row[1];
-    if(typeof bVal==='number'&&Number.isInteger(bVal)&&bVal>=1&&bVal<=31&&currentYear&&currentMonth){
-      currentDay=bVal;
-      const mm=String(currentMonth).padStart(2,'0');
-      const dd=String(currentDay).padStart(2,'0');
-      currentKey=`${currentYear}-${mm}-${dd}`;
-    }
-    // B列がExcelシリアル値(大きい数)の場合も対応
-    if(typeof bVal==='number'&&bVal>40000&&bVal<70000){
-      currentKey=cellToDateKey(bVal);
-    }
+    if(!currentKey)continue;
 
     // E列(index4)=時刻, G列(index6)=カテゴリ, H列(index7)=タイトル
-    if(!currentKey)continue;
     const timeVal=row[4];
     const catVal=row[6];
     const titleVal=row[7];
@@ -1335,7 +1338,6 @@ function importSheetRows(rows){
     if(!dup){
       ud['ev_'+currentKey].push({time:timeStr,cat:validCat,title:titleStr});
       importCount++;
-      console.log('[取込] 追加:',currentKey,timeStr,catStr,titleStr);
     }
   }
 
