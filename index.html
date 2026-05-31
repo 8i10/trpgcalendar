@@ -463,7 +463,7 @@ function buildCal(){
         <span class="${iconCls}"></span>
         <select class="user-ev-time-sel" data-field="time" style="color:var(--color-text-secondary);font-size:10px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0;outline:none;cursor:pointer;width:36px;min-width:36px;-webkit-appearance:none;appearance:none">${timeOpts}</select>
         <select class="${catCls}" data-field="cat" style="-webkit-appearance:none;appearance:none">${catOpts}</select>
-        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="○" style="flex:1;font-family:'Zen Kaku Gothic New',sans-serif;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text">
+        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="" style="flex:1;font-family:'Zen Kaku Gothic New',sans-serif;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text">
         ${delHtml}
       </div>`;
     }
@@ -820,21 +820,69 @@ function importFromXlsx(input){
   reader.readAsArrayBuffer(file);
 }
 
-// ===== 共有・閲覧モード =====
+// ===== 共有・閲覧モード (GitHub Gist) =====
 const VIEW_PARAM=(new URLSearchParams(location.search)).get('view');
+const GIST_TOKEN_KEY='cal_gist_token';
+
+function getGistToken(){return localStorage.getItem(GIST_TOKEN_KEY)||'';}
+function saveGistToken(t){localStorage.setItem(GIST_TOKEN_KEY,t);}
 
 async function publishView(){
   const ud=getUserData();
-  // キー: ユーザーメールのハッシュっぽい文字列（固定キーで上書き更新）
-  const key='cal_view_'+btoa(currentUser).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
   const payload=JSON.stringify({ud,ts:Date.now()});
+  let token=getGistToken();
+
+  // トークン未設定ならダイアログで入力
+  if(!token){
+    token=prompt('GitHub Personal Access Token を入力してください（gist スコープが必要）:\nhttps://github.com/settings/tokens で生成できます');
+    if(!token)return;
+    saveGistToken(token.trim());
+    token=token.trim();
+  }
+
+  // 既存GistID確認
+  const gistIdKey='cal_gist_id_'+btoa(currentUser).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
+  const existingId=localStorage.getItem(gistIdKey);
+
   try{
-    const result=await window.storage.set(key,payload,true);
-    if(!result){alert('保存に失敗しました');return;}
-    const url=location.origin+location.pathname+'?view='+key;
+    let gistId;
+    if(existingId){
+      // PATCH: 既存Gistを更新
+      const r=await fetch('https://api.github.com/gists/'+existingId,{
+        method:'PATCH',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({files:{'calendar.json':{content:payload}}})
+      });
+      if(r.status===404){
+        // 削除済みなら新規作成
+        localStorage.removeItem(gistIdKey);
+        return publishView();
+      }
+      if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
+      gistId=existingId;
+    } else {
+      // POST: 新規Gist作成
+      const r=await fetch('https://api.github.com/gists',{
+        method:'POST',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({public:false,description:'calendar data',files:{'calendar.json':{content:payload}}})
+      });
+      if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
+      const data=await r.json();
+      gistId=data.id;
+      localStorage.setItem(gistIdKey,gistId);
+    }
+    const url=location.origin+location.pathname+'?view='+gistId;
     await navigator.clipboard.writeText(url).catch(()=>{});
     showShareModal(url);
-  }catch(e){alert('エラー: '+e.message);}
+  }catch(e){
+    if(e.message&&e.message.includes('Bad credentials')){
+      localStorage.removeItem(GIST_TOKEN_KEY);
+      alert('トークンが無効です。再度入力してください。');
+      return publishView();
+    }
+    alert('エラー: '+e.message);
+  }
 }
 
 function showShareModal(url){
@@ -882,12 +930,18 @@ async function initViewMode(){
   const icons=cal.querySelector('.month-sticky-icons');
   if(icons)icons.style.display='none';
   try{
-    const result=await window.storage.get(VIEW_PARAM,true);
-    if(!result){
+    const r=await fetch('https://api.github.com/gists/'+VIEW_PARAM);
+    if(!r.ok){
       document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
       return;
     }
-    const data=JSON.parse(result.value);
+    const gist=await r.json();
+    const raw=gist.files['calendar.json']&&gist.files['calendar.json'].content;
+    if(!raw){
+      document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
+      return;
+    }
+    const data=JSON.parse(raw);
     currentYear=new Date().getFullYear();
     updateYearLabel();
     buildCalView(data.ud);
@@ -954,8 +1008,8 @@ function buildCalView(ud){
       </div>`;
     }
 
-    const hiruHtml=(hiruEvs.length>0?hiruEvs:[{time:'',cat:'',title:''}]).map(ev=>viewRow(ev,'hiru')).join('');
-    const yoruHtml=(yoruEvs.length>0?yoruEvs:[{time:'',cat:'',title:''}]).map(ev=>viewRow(ev,'yoru')).join('');
+    const hiruHtml=hiruEvs.map(ev=>viewRow(ev,'hiru')).join('');
+    const yoruHtml=yoruEvs.map(ev=>viewRow(ev,'yoru')).join('');
 
     html+=`<div class="${cls}" id="day-${key}">
       <div class="day-header">
@@ -980,9 +1034,12 @@ function changeYear(delta){
   document.getElementById('yearNavLabel').textContent=currentYear+'年';
   if(VIEW_PARAM){
     // 閲覧モード：再ロードせず再描画
-    window.storage.get(VIEW_PARAM,true).then(result=>{
-      if(result){const data=JSON.parse(result.value);buildCalView(data.ud);}
-    }).catch(()=>{});
+    fetch('https://api.github.com/gists/'+VIEW_PARAM)
+      .then(r=>r.json())
+      .then(gist=>{
+        const raw=gist.files['calendar.json']&&gist.files['calendar.json'].content;
+        if(raw){const data=JSON.parse(raw);buildCalView(data.ud);}
+      }).catch(()=>{});
   } else {
     buildCal();
   }
