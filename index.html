@@ -65,13 +65,7 @@
 .day-num::after{content:'';display:block;position:absolute;left:42px;top:0;bottom:0;width:2px}
 .day-row{position:relative}
 .day-row::before{content:'';position:absolute;left:42px;top:0;bottom:0;width:2px;background:#1D9E75;z-index:1}
-.day-row.past{background:#f5f5f5}
-.day-row.past .events-col{opacity:0.45}
-.day-row.past .day-num{background:#ebebeb!important}
-.day-row.past.sun .day-num,.day-row.past.holiday .day-num{background:#f3e8e8!important}
-.day-row.past.sat .day-num{background:#eaedf5!important}
-.day-row.past .dnum,.day-row.past .dwk{opacity:0.45}
-.day-row.past::before{opacity:0.25}
+.day-row.past .events-col{background:#f5f5f5}
 
 /* EVENTS COL */
 .events-col{flex:1;padding:2px 5px;display:flex;flex-direction:column;gap:1px;min-width:0;padding-left:7px}
