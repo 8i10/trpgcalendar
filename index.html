@@ -1254,87 +1254,45 @@ async function importFromSpreadsheetUrl(){
   }
 }
 
-// 実際の取込処理（wsオブジェクトを直接受け取る）
-// 構造: 各月先頭行のみB列に実際のDatetime値。以降は=B前行+1の数式。
-// C列に曜日がある行=日付行（偶数行）、C列nullの行=続き行（奇数行）
-// 日付行のB値は数式で取れないため、月先頭のDateを基準に+1ずつカウントする
+// 実際の取込処理
+// raw:true で読むとB列の計算済みシリアル値が数値で取得できる
+// B列が日付シリアル値(数値)の行=日付行、そうでない行=続き行(同日付)
 function importSheetRows(ws){
   let importCount=0;
   const ud=getUserData();
-  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
-
-  let currentDate=null;
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  let currentKey=null;
 
   for(let i=0;i<rows.length;i++){
     const row=rows[i];
     if(!row)continue;
     const bVal=row[1];
-    const cVal=row[2];
-
-    // B列に日付値がある行を検出（月ヘッダー行 or 月初行）
-    // raw:falseではXLSX.jsが日付をDate文字列に変換するが cellDates:trueなら Dateオブジェクト
-    if(bVal!=null){
-      let d=null;
-      if(typeof bVal==='object'&&bVal instanceof Date) d=bVal;
-      else if(typeof bVal==='string'){
-        // "2025-01-01T00:00:00.000Z" or "2025/01/01"
-        const m=String(bVal).match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
-        if(m) d=new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3]));
-      }
-      if(d){
-        // C列がない→月ヘッダー行（データなし、日付の基準をセット）
-        // C列がある→実際の日付行で直接日付確定
-        currentDate=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-        if(!cVal) continue; // ヘッダー行はデータなし
-      }
+    // B列が日付シリアル値なら日付キーを更新
+    if(typeof bVal==='number'&&bVal>40000&&bVal<80000){
+      currentKey=ymd(serialToDate(Math.round(bVal)));
     }
-
-    if(!currentDate) continue;
-
-    // C列が曜日文字＝日付行
-    if(cVal&&typeof cVal==='string'&&/^[月火水木金土日]$/.test(cVal.trim())){
-      const key=ymd(currentDate);
-      // この行のE/G/H（昼予定）
-      const added=tryAddEv(ud,key,row[4],row[6],row[7]);
-      if(added) importCount++;
-      // 次の行（続き行）も同じ日付で夜予定
-      const next=rows[i+1];
-      if(next&&!next[2]){
-        const added2=tryAddEv(ud,key,next[4],next[6],next[7]);
-        if(added2) importCount++;
-        i++;
-      }
-      // 翌日へ進める
-      currentDate=new Date(currentDate);
-      currentDate.setDate(currentDate.getDate()+1);
-      continue;
+    if(!currentKey)continue;
+    const eVal=row[4],gVal=row[6],hVal=row[7];
+    if(!hVal)continue;
+    const titleStr=String(hVal).trim();
+    if(!titleStr)continue;
+    let timeStr='';
+    if(typeof eVal==='number'&&eVal>=0&&eVal<1){
+      const mins=Math.round(eVal*1440);
+      timeStr=String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+    }else if(typeof eVal==='string'){
+      const m=eVal.match(/^(\d{1,2}):(\d{2})/);
+      if(m)timeStr=m[1].padStart(2,'0')+':'+m[2];
     }
-
-    // C列なし・H列にタイトルあり＝孤立データ行（日付行とペアにならなかった行）
-    if(!cVal&&row[7]){
-      const key=ymd(currentDate);
-      const added=tryAddEv(ud,key,row[4],row[6],row[7]);
-      if(added) importCount++;
-    }
+    const catStr=gVal?String(gVal).trim().toLowerCase():'';
+    const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
+    if(!ud['ev_'+currentKey])ud['ev_'+currentKey]=[];
+    const dup=ud['ev_'+currentKey].some(ex=>ex.title===titleStr&&ex.time===timeStr);
+    if(!dup){ud['ev_'+currentKey].push({time:timeStr,cat:validCat,title:titleStr});importCount++;}
   }
 
   saveUserData(ud);touchUpdated();buildCal();
   return importCount;
-}
-
-function tryAddEv(ud,key,timeVal,catVal,titleVal){
-  if(!titleVal) return false;
-  const titleStr=String(titleVal).trim();
-  if(!titleStr) return false;
-  let timeStr='';
-  if(timeVal instanceof Date) timeStr=String(timeVal.getHours()).padStart(2,'0')+':'+String(timeVal.getMinutes()).padStart(2,'0');
-  else timeStr=timeValToStr(timeVal);
-  const catStr=catVal?String(catVal).trim().toLowerCase():'';
-  const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
-  if(!ud['ev_'+key]) ud['ev_'+key]=[];
-  const dup=ud['ev_'+key].some(ex=>ex.title===titleStr&&ex.time===timeStr);
-  if(!dup){ ud['ev_'+key].push({time:timeStr,cat:validCat,title:titleStr}); return true; }
-  return false;
 }
 
 // ===== 共有・閲覧モード (GitHub Gist) =====
