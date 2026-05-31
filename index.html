@@ -501,61 +501,71 @@ function buildCal(){
 }
 
 // ===== Event delegation (全インタラクション) =====
-document.addEventListener('click', function(e){
-  // ＋ボタン（追加フォームを開く）
-  const addBtn = e.target.closest('[data-addkey]');
-  if(addBtn && !addBtn.dataset.addconfirm && !addBtn.dataset.addcancel){
-    showAddRow(addBtn.dataset.addkey); return;
-  }
-  // 追加確定
-  const confirmBtn = e.target.closest('[data-addconfirm]');
-  if(confirmBtn){ confirmAdd(confirmBtn.dataset.addconfirm); return; }
-  // 追加キャンセル
-  const cancelBtn = e.target.closest('[data-addcancel]');
-  if(cancelBtn){ cancelAdd(cancelBtn.dataset.addcancel); return; }
-  // ユーザー予定削除
-  const delBtn = e.target.closest('[data-del]');
-  if(delBtn){
-    const row = delBtn.closest('.user-ev-row');
-    if(row) deleteUserEv(row.dataset.evkey, parseInt(row.dataset.evui));
-    return;
-  }
-});
-document.addEventListener('change', function(e){
-  // チェックボックス
-  if(e.target.dataset.chkkey){
-    saveChk(e.target.dataset.chkkey, parseInt(e.target.dataset.chkidx), e.target.checked); return;
-  }
-  // 月メモ
-  if(e.target.dataset.notekey){
-    saveNote(e.target.dataset.notekey, e.target.value); return;
-  }
-  // 追加フォーム時刻
-  if(e.target.dataset.addicon){
-    updateAddIcon(e.target.dataset.addicon); return;
-  }
-  // ユーザー予定編集（select）
-  const row = e.target.closest('.user-ev-row');
-  if(row){
-    const key = row.dataset.evkey;
-    const ui = parseInt(row.dataset.evui);
-    const field = e.target.dataset.field;
-    if(field === 'cat') updateUserEvCat(key, ui, e.target);
-    else if(field) updateUserEv(key, ui, field, e.target.value);
-  }
-});
-document.addEventListener('input', function(e){
-  // ユーザー予定タイトル編集
-  const row = e.target.closest('.user-ev-row');
-  if(row && e.target.dataset.field === 'title'){
-    updateUserEv(row.dataset.evkey, parseInt(row.dataset.evui), 'title', e.target.value);
-  }
-});
-document.addEventListener('keydown', function(e){
-  // 追加フォームでEnter/Escape
-  if(e.target.dataset.addinput){
-    addRowKey(e, e.target.dataset.addinput);
-  }
+document.addEventListener('DOMContentLoaded', function(){
+  // クリック全般
+  document.addEventListener('click', function(e){
+    const t = e.target;
+    // ＋ボタン（アイコンの子要素クリック対応で parentElement もチェック）
+    const addBtn = t.closest('.show-add-btn');
+    if(addBtn){
+      showAddRow(addBtn.dataset.addkey); return;
+    }
+    // 追加確定
+    const confirmBtn = t.closest('[data-addconfirm]');
+    if(confirmBtn){ confirmAdd(confirmBtn.dataset.addconfirm); return; }
+    // 追加キャンセル
+    const cancelBtn = t.closest('[data-addcancel]');
+    if(cancelBtn){ cancelAdd(cancelBtn.dataset.addcancel); return; }
+    // ユーザー予定削除
+    const delBtn = t.closest('[data-del]');
+    if(delBtn){
+      const row = delBtn.closest('.user-ev-row');
+      if(row) deleteUserEv(row.dataset.evkey, parseInt(row.dataset.evui));
+      return;
+    }
+  });
+
+  // change全般
+  document.addEventListener('change', function(e){
+    const t = e.target;
+    // チェックボックス
+    if(t.dataset.chkkey){
+      saveChk(t.dataset.chkkey, parseInt(t.dataset.chkidx), t.checked); return;
+    }
+    // 月メモ
+    if(t.dataset.notekey){
+      saveNote(t.dataset.notekey, t.value); return;
+    }
+    // 追加フォーム時刻
+    if(t.dataset.addicon){
+      updateAddIcon(t.dataset.addicon); return;
+    }
+    // ユーザー予定編集（select）
+    const row = t.closest('.user-ev-row');
+    if(row){
+      const key = row.dataset.evkey;
+      const ui = parseInt(row.dataset.evui);
+      const field = t.dataset.field;
+      if(field === 'cat') updateUserEvCat(key, ui, t);
+      else if(field) updateUserEv(key, ui, field, t.value);
+    }
+  });
+
+  // input（テキスト入力）
+  document.addEventListener('input', function(e){
+    const t = e.target;
+    const row = t.closest('.user-ev-row');
+    if(row && t.dataset.field === 'title'){
+      updateUserEv(row.dataset.evkey, parseInt(row.dataset.evui), 'title', t.value);
+    }
+  });
+
+  // keydown（Enter/Escape）
+  document.addEventListener('keydown', function(e){
+    if(e.target.dataset.addinput){
+      addRowKey(e, e.target.dataset.addinput);
+    }
+  });
 });
 
 function setupScrollSpy(){
