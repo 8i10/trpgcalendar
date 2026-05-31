@@ -27,7 +27,7 @@
 .year-nav-label{font-size:13px;font-weight:600;min-width:40px;text-align:center}
 
 /* TOP HEADER */
-.header{background:#1D9E75;color:#fff;padding:5px 10px;display:flex;align-items:center;gap:7px;position:sticky;top:0;z-index:20}
+.header{position:relative;background:#1D9E75;color:#fff;padding:5px 10px;display:flex;align-items:center;gap:7px;position:sticky;top:0;z-index:20}
 .header-updated{font-size:10px;flex:1;opacity:0.85}
 .today-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px}
 .today-btn:hover{background:rgba(255,255,255,0.35)}
@@ -38,7 +38,7 @@
 .month-sticky{background:#1D9E75;color:#fff;padding:3px 0;display:flex;align-items:center;position:sticky;top:34px;z-index:19;border-top:1px solid rgba(255,255,255,0.2)}
 .month-sticky-label{font-size:13px;font-weight:600;flex:1;padding-left:8px}
 /* icons must align exactly with checks-col */
-.month-sticky-icons{display:flex;gap:0;width:72px;min-width:72px}
+.month-sticky-icons{display:flex;gap:0;width:160px;min-width:160px}
 .month-sticky-icons span{flex:1;text-align:center;font-size:12px;line-height:1}
 
 /* MONTH DIVIDER */
@@ -126,9 +126,10 @@
 .add-col{width:22px;min-width:22px;display:flex;align-items:flex-start;justify-content:center;padding-top:4px}
 
 /* CHECKS COL — fixed 72px, 3 equal slots */
-.checks-col{width:72px;min-width:72px;display:flex;align-items:flex-start;padding:4px 0;gap:0}
-.chk-wrap{flex:1;display:flex;justify-content:center;align-items:flex-start;padding-top:2px}
-.chk{width:14px;height:14px;cursor:pointer;accent-color:#1D9E75}
+.checks-col{width:160px;min-width:160px;display:flex;flex-direction:column;padding:2px 0;gap:2px}
+.memo-input{width:100%;box-sizing:border-box;font-size:10px;font-family:'Zen Kaku Gothic New',sans-serif;border:none;border-bottom:1px solid transparent;background:transparent;padding:1px 2px;outline:none;color:var(--color-text-primary);resize:none;line-height:1.4}
+.memo-input:hover{background:rgba(0,0,0,0.03)}
+.memo-input:focus{background:rgba(0,0,0,0.03);border-bottom-color:#1D9E75}
 
 /* MONTH NOTE */
 .month-note-wrap{border-top:1px solid rgba(0,0,0,0.13);background:var(--color-background-primary);padding:3px 8px 3px 50px;display:flex;align-items:flex-start}
@@ -177,16 +178,16 @@
     </div>
     <button class="today-btn" onclick="scrollToToday()">今日</button>
     <button class="today-btn" onclick="publishView()" title="閲覧用URLを発行">🔗共有</button>
-    <button class="today-btn" onclick="document.getElementById('xlsxInput').click()" title="スプレッドシートから予定を取り込む">📥取込</button>
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
-    <div class="avatar" id="avatarLabel" onclick="doLogout()" title="ログアウト" style="cursor:pointer">？</div>
+    <div class="avatar" id="avatarLabel" onclick="toggleAvatarMenu(event)" style="cursor:pointer">？</div>
+    <div id="avatarMenu" style="display:none;position:absolute;top:34px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:110px;overflow:hidden">
+      <div onclick="document.getElementById('xlsxInput').click();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📥 取込</div>
+      <div style="border-top:1px solid #eee;margin:0"></div>
+      <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
+    </div>
   </div>
   <div class="month-sticky">
     <span class="month-sticky-label" id="stickyMonth">—</span>
-    <div style="width:22px;min-width:22px"></div>
-    <div class="month-sticky-icons">
-      <span>🐓</span><span>📝</span><span>👤</span>
-    </div>
   </div>
   <div id="calBody"></div>
 </div>
@@ -430,7 +431,7 @@ function buildCal(){
     if(isPast)cls+=' past';
 
     const userEvs=(ud['ev_'+key])||[];
-    const chks=(ud['chk_'+key])||[];
+    const memos=ud['memo_'+key]||{};
 
     // 昼・夜に分類（空エントリは昼扱い）
     const hiruEvs=[];const yoruEvs=[];
@@ -472,15 +473,9 @@ function buildCal(){
     // 昼・夜それぞれ最初の実行エントリのインデックス
     const hiruUi=(hiruEvs[0])?hiruEvs[0]._ui:-1;
     const yoruUi=(yoruEvs[0])?yoruEvs[0]._ui:-1;
-    function renderChkCol(ui, hasTime){
-      if(!hasTime||ui<0) return `<div style="width:24px;min-width:24px"></div>`;
-      const c0=chks[ui*3]||false,c1=chks[ui*3+1]||false,c2=chks[ui*3+2]||false;
-      const cs='width:13px;height:13px;cursor:pointer;accent-color:#1D9E75;flex-shrink:0';
-      return `<div style="display:flex;width:72px;min-width:72px;align-items:center">
-        <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${cs}" ${c0?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3}"></span>
-        <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${cs}" ${c1?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+1}"></span>
-        <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${cs}" ${c2?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+2}"></span>
-      </div>`;
+    function renderMemoCol(slotKey){
+      const val=(memos[slotKey]||'').replace(/"/g,'&quot;');
+      return `<input type="text" class="memo-input" value="${val}" data-memokey="${key}" data-memoslot="${slotKey}" placeholder="">`;
     }
 
     let evHtml='';
@@ -492,8 +487,9 @@ function buildCal(){
     if(hiruEvs.length>0&&(hiruEvs[hiruEvs.length-1].time||hiruEvs[hiruEvs.length-1].title))
       evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="hiru"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div>`;
-    evHtml+=renderChkCol(hiruUi, hiruEvs[0]&&hiruEvs[0].time);
+    evHtml+=`<div style="width:160px;min-width:160px;padding:0 2px">${renderMemoCol('hiru')}</div>`;
     evHtml+=`</div>`;
+    evHtml+=`<div style="border-top:1px dotted rgba(0,0,0,0.25);margin:1px 0"></div>`;
     // 夜行
     const yoruEv=yoruRows[0];
     evHtml+=`<div style="display:flex;align-items:center">`;
@@ -502,7 +498,7 @@ function buildCal(){
     if(yoruEvs.length>0&&(yoruEvs[yoruEvs.length-1].time||yoruEvs[yoruEvs.length-1].title))
       evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="yoru"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div>`;
-    evHtml+=renderChkCol(yoruUi, yoruEvs[0]&&yoruEvs[0].time);
+    evHtml+=`<div style="width:160px;min-width:160px;padding:0 2px">${renderMemoCol('yoru')}</div>`;
     evHtml+=`</div>`;
 
     html+=`<div class="${cls}" id="day-${key}">
@@ -574,8 +570,8 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('change', function(e){
     const t = e.target;
     // チェックボックス
-    if(t.dataset.chkkey){
-      saveChk(t.dataset.chkkey, parseInt(t.dataset.chkidx), t.checked); return;
+    if(t.dataset.memokey){
+      saveMemo(t.dataset.memokey, t.dataset.memoslot, t.value); return;
     }
     // 月メモ
     if(t.dataset.notekey){
@@ -653,16 +649,25 @@ function setupScrollSpy(){
   dividers.forEach(d=>obs.observe(d));
 }
 
+function toggleAvatarMenu(e){
+  e.stopPropagation();
+  const m=document.getElementById('avatarMenu');
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+function closeAvatarMenu(){
+  document.getElementById('avatarMenu').style.display='none';
+}
+document.addEventListener('click',function(){closeAvatarMenu();});
+
 function scrollToToday(){
   const el=document.getElementById('day-'+TODAY);
   if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
-function saveChk(key,idx,val){
+function saveMemo(key,slot,val){
   const ud=getUserData();
-  if(!ud['chk_'+key])ud['chk_'+key]=[];
-  while(ud['chk_'+key].length<=idx)ud['chk_'+key].push(false);
-  ud['chk_'+key][idx]=val;
+  if(!ud['memo_'+key])ud['memo_'+key]={};
+  ud['memo_'+key][slot]=val;
   saveUserData(ud);touchUpdated();
 }
 
