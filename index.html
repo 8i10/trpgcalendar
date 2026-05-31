@@ -1211,10 +1211,9 @@ function importFromXlsx(input){
   reader.onload=function(e){
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array',raw:true});
+      const wb=XLSX.read(data,{type:'array',cellDates:true,dense:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-      const count=importSheetRows(rows);
+      const count=importSheetRows(ws);
       alert(`${count}件の予定を取り込みました。`);
     }catch(err){
       alert('取込エラー: '+err.message);
@@ -1224,45 +1223,30 @@ function importFromXlsx(input){
   reader.readAsArrayBuffer(file);
 }
 
-// スプレッドシートURL（pubhtml）から直接取り込み
+// スプレッドシートURL（pubhtml or 直接xlsx URL）から取り込み
 async function importFromSpreadsheetUrl(){
   const url=prompt(
-    'GoogleスプレッドシートのURLを入力してください\n\n' +
-    '「ファイル→共有→ウェブに公開」で取得したURLをそのまま貼り付けてください'
+    'URLを入力してください\n\n' +
+    '① Googleスプレッドシート: 「ファイル→共有→ウェブに公開」のURL\n' +
+    '② 公開xlsxの直接URL（GitHub Raw等）: そのままURLを貼り付け'
   );
   if(!url||!url.trim())return;
   try{
-    let xlsxUrl=url.trim();
-    const gidMatch=xlsxUrl.match(/[?&]gid=(\d+)/);
-    const gid=gidMatch?gidMatch[1]:null;
-    xlsxUrl=xlsxUrl.replace(/\/pubhtml(\?.*)?$/,'/pub');
-    xlsxUrl+=((xlsxUrl.includes('?')?'&':'?')+'output=xlsx');
-    if(gid&&!xlsxUrl.includes('gid='))xlsxUrl+='&gid='+gid;
-
-    const res=await fetch(xlsxUrl);
+    let fetchUrl=url.trim();
+    // Googleスプレッドシートの場合はxlsxダウンロードURLに変換
+    if(fetchUrl.includes('docs.google.com')||fetchUrl.includes('spreadsheets')){
+      const gidMatch=fetchUrl.match(/[?&]gid=(\d+)/);
+      const gid=gidMatch?gidMatch[1]:null;
+      fetchUrl=fetchUrl.replace(/\/pubhtml(\?.*)?$/,'/pub');
+      fetchUrl+=((fetchUrl.includes('?')?'&':'?')+'output=xlsx');
+      if(gid&&!fetchUrl.includes('gid='))fetchUrl+='&gid='+gid;
+    }
+    const res=await fetch(fetchUrl);
     if(!res.ok)throw new Error('取得失敗('+res.status+'): URLが公開されているか確認してください');
     const buf=await res.arrayBuffer();
-    const wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
-
-    // gid指定があれば対応シートを探す
-    let sheetName=wb.SheetNames[0];
-    if(gid){
-      for(const sn of wb.SheetNames){
-        const ws=wb.Sheets[sn];
-        if(ws['!sheetId']&&String(ws['!sheetId'])===gid){sheetName=sn;break;}
-      }
-    }
-    const ws=wb.Sheets[sheetName];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-
-    console.log('[取込] シート:',sheetName,'行数:',rows.length);
-    if(rows.length>0)console.log('[取込] 1行目:',JSON.stringify(rows[0]));
-    if(rows.length>1)console.log('[取込] 2行目:',JSON.stringify(rows[1]));
-    if(rows.length>2)console.log('[取込] 3行目:',JSON.stringify(rows[2]));
-    if(rows.length>3)console.log('[取込] 4行目:',JSON.stringify(rows[3]));
-
-    if(!rows||rows.length===0){alert('データが見つかりませんでした。');return;}
-    const count=importSheetRows(rows);
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true,dense:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const count=importSheetRows(ws);
     alert(`${count}件の予定を取り込みました。`);
   }catch(err){
     alert('取込エラー: '+err.message);
@@ -1270,66 +1254,50 @@ async function importFromSpreadsheetUrl(){
   }
 }
 
-// 実際の取込処理
-// スプレッドシート構造（画像確認済み）:
-//   行1: 「2025/01」などの年月ヘッダー（結合セル）
-//   行2以降: 1日=2行
-//     日付行: B列=日付の「日」数字(1-31), C列=曜日, E列=時刻1, G列=カテゴリ1, H列=タイトル1
-//     続き行: E列=時刻2, G列=カテゴリ2, H列=タイトル2
-// 列インデックス(0始まり): A=0,B=1,C=2,D=3,E=4,F=5,G=6,H=7
-function importSheetRows(rows){
+// 実際の取込処理（wsオブジェクトを直接受け取る）
+// 構造: B列=日付(Date or 数式参照), C列=曜日, E列=時刻, G列=カテゴリ, H列=タイトル
+function importSheetRows(ws){
   let importCount=0;
   const ud=getUserData();
   let currentKey=null;
+
+  // sheet_to_jsonで計算済み値を取得（cellDates:trueで日付はDateオブジェクト）
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
 
   for(let i=0;i<rows.length;i++){
     const row=rows[i];
     if(!row||row.length===0)continue;
 
-    // B列(index1)の値でdateを判定
     const bVal=row[1];
 
-    // Excelシリアル値(大きい数: 日付)の場合 → 日付キーを更新
-    if(typeof bVal==='number'&&bVal>40000&&bVal<70000){
-      const k=cellToDateKey(bVal);
+    // B列がDateオブジェクトまたは日付文字列の場合
+    if(bVal instanceof Date){
+      const k=ymd(bVal);
       if(k)currentKey=k;
-    }
-    // B列が1〜31の整数かつrow[1]が小数でない → 年月+日でキー生成（別形式スプレッドシート対応）
-    else if(typeof bVal==='number'&&Number.isInteger(bVal)&&bVal>=1&&bVal<=31){
-      // 年月をその行より前の行から探す
-      for(let pi=i-1;pi>=0&&pi>=i-5;pi--){
-        const pr=rows[pi];
-        if(!pr)continue;
-        for(let ci=0;ci<Math.min(pr.length,12);ci++){
-          const v=pr[ci];if(!v)continue;
-          const s=String(v).trim();
-          const ym=s.match(/^(\d{4})[\/年](\d{1,2})[月\/]?$/);
-          if(ym){
-            const mm=String(parseInt(ym[2])).padStart(2,'0');
-            const dd=String(bVal).padStart(2,'0');
-            currentKey=`${ym[1]}-${mm}-${dd}`;
-            break;
-          }
-        }
-        if(currentKey)break;
-      }
-    }
-    // B列が文字列の日付形式（例: "2025/01/03"）
-    else if(typeof bVal==='string'){
-      const m=bVal.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+    } else if(typeof bVal==='string'&&bVal.trim()){
+      // 日付文字列パターン "2025/01/03" or "2025-01-03"
+      const m=bVal.trim().match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
       if(m)currentKey=`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
     }
 
     if(!currentKey)continue;
 
-    // E列(index4)=時刻, G列(index6)=カテゴリ, H列(index7)=タイトル
+    // E列=時刻, G列=カテゴリ, H列=タイトル
     const timeVal=row[4];
     const catVal=row[6];
     const titleVal=row[7];
     if(!titleVal)continue;
     const titleStr=String(titleVal).trim();
     if(!titleStr)continue;
-    const timeStr=timeValToStr(timeVal);
+
+    // 時刻: Dateオブジェクト or "21:30" 文字列 or 小数
+    let timeStr='';
+    if(timeVal instanceof Date){
+      timeStr=String(timeVal.getHours()).padStart(2,'0')+':'+String(timeVal.getMinutes()).padStart(2,'0');
+    } else {
+      timeStr=timeValToStr(timeVal);
+    }
+
     const catStr=catVal?String(catVal).trim().toLowerCase():'';
     const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
 
