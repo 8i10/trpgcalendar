@@ -1168,20 +1168,17 @@ function deleteUserEv(key,ui){
 }
 
 // ===== スプレッドシートから予定を取り込む =====
-// スプレッドシート列構成:
-// A列: 日付シリアル値 または 日付文字列
-// B列: 時刻（小数 例:0.9167 または 文字列 例:"21:00"）
-// C列: カテゴリ（vc/tx/vt/pl）
-// D列: シナリオ名（タイトル）
-// ※ 2件目以降はE,F,G,H列 ... と4列ずつ
+// スプレッドシート構造（画像確認済み）:
+// 1日 = 2行
+// 1行目: B列=日付(数字), C列=曜日, E列=時刻1, G列=カテゴリ1, H列=タイトル1
+// 2行目: E列=時刻2, G列=カテゴリ2, H列=タイトル2（B,C列は空）
+// 列インデックス(0始まり): A=0,B=1,C=2,D=3,E=4,F=5,G=6,H=7
 
 // 時刻小数→"HH:MM"変換
 function timeValToStr(val){
   if(val===null||val===undefined||val==='')return'';
   const s=String(val).trim();
-  // すでにHH:MM形式
   if(/^\d{1,2}:\d{2}$/.test(s))return s.padStart(5,'0').slice(0,5);
-  // 小数形式（0.9167など）
   const num=parseFloat(s);
   if(!isNaN(num)&&num>0&&num<1){
     const mins=Math.round(num*1440);
@@ -1190,72 +1187,18 @@ function timeValToStr(val){
   return'';
 }
 
-// シリアル値または日付文字列→"YYYY-MM-DD"変換
+// シリアル値または日付文字列→"YYYY-MM-DD"
 function cellToDateKey(val){
   if(val===null||val===undefined||val==='')return null;
   const num=Number(val);
-  if(!isNaN(num)&&num>40000&&num<60000){
-    // Excelシリアル値
+  if(!isNaN(num)&&num>40000&&num<70000){
     const d=new Date(SERIAL_ORIGIN);d.setDate(d.getDate()+Math.round(num));
     return ymd(d);
   }
   const s=String(val).trim();
-  // YYYY/MM/DD または YYYY-MM-DD
   const m=s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if(m)return`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
   return null;
-}
-
-function importRows(rows){
-  let importCount=0;
-  const ud=getUserData();
-
-  // 列構成を自動検出
-  // 現在のスプレッドシート形式を確認:
-  // パターンA: [シリアル値, 時刻小数, カテゴリ, タイトル, 時刻2, カテゴリ2, タイトル2, ...]
-  // パターンB: [シリアル値, 曜日, 時刻, カテゴリ, タイトル, ...]（B列に曜日がある）
-  // → 自動判定: A列=シリアル値(数値)の後、次が数値(<1)なら時刻→パターンA
-  //             次が文字列なら曜日→パターンB
-
-  function detectStartCol(row){
-    // row[0]が日付(シリアル値or文字列)の場合、時刻が何列目かを探す
-    // row[1]が数値(0<x<1) or HH:MM文字列 → startCol=1
-    // row[1]が文字列(曜日など) → startCol=2を試す
-    if(row[1]===null||row[1]===undefined) return 1;
-    const v1=row[1];
-    if(typeof v1==='number' && v1>0 && v1<1) return 1; // 時刻小数
-    if(typeof v1==='string' && /^\d{1,2}:\d{2}$/.test(v1.trim())) return 1; // HH:MM
-    return 2; // 曜日などをスキップ
-  }
-
-  rows.forEach(row=>{
-    if(!row||row.length===0)return;
-    const key=cellToDateKey(row[0]);
-    if(!key)return;
-    const startCol=detectStartCol(row);
-    const eventsToAdd=[];
-    // startColから3列ずつ: [時刻, カテゴリ, タイトル]
-    for(let ci=startCol;ci<row.length;ci+=3){
-      const tVal=row[ci];
-      const cVal=row[ci+1]!==undefined?row[ci+1]:null;
-      const titleVal=row[ci+2]!==undefined?row[ci+2]:null;
-      const titleStr=titleVal?String(titleVal).trim():'';
-      if(!titleStr)continue;
-      const timeStr=timeValToStr(tVal);
-      const catStr=cVal?String(cVal).trim().toLowerCase():'';
-      const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
-      eventsToAdd.push({time:timeStr,cat:validCat,title:titleStr});
-    }
-    if(eventsToAdd.length===0)return;
-    if(!ud['ev_'+key])ud['ev_'+key]=[];
-    eventsToAdd.forEach(newEv=>{
-      const dup=ud['ev_'+key].some(ex=>ex.title===newEv.title&&ex.time===newEv.time);
-      if(!dup){ud['ev_'+key].push(newEv);importCount++;}
-    });
-  });
-  saveUserData(ud);touchUpdated();buildCal();
-  alert(`${importCount}件の予定を取り込みました。`);
-  return importCount;
 }
 
 // XLSXファイルから取り込み
@@ -1267,72 +1210,137 @@ function importFromXlsx(input){
   reader.onload=function(e){
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      const wb=XLSX.read(data,{type:'array',raw:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-      importRows(rows);
+      const count=importSheetRows(rows);
+      alert(`${count}件の予定を取り込みました。`);
     }catch(err){
       alert('取込エラー: '+err.message);
+      console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
 // スプレッドシートURL（pubhtml）から直接取り込み
-// pubhtmlのURLを /pub?output=xlsx に変換してXLSXとして取得する
 async function importFromSpreadsheetUrl(){
   const url=prompt(
     'GoogleスプレッドシートのURLを入力してください\n\n' +
-    '例（pubhtmlのURL）:\n' +
-    'https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml\n\n' +
-    '※「ファイル→共有→ウェブに公開」で取得したURLをそのまま貼り付けてください'
+    '「ファイル→共有→ウェブに公開」で取得したURLをそのまま貼り付けてください'
   );
   if(!url||!url.trim())return;
   try{
-    // pubhtmlのURLをxlsx出力URLに変換
-    // パターン: .../pubhtml?... → .../pub?output=xlsx
-    // または .../pubhtml → .../pub?output=xlsx
-    let xlsxUrl = url.trim();
-    // gid付きの場合: ?gid=xxx&single=true など
-    const gidMatch = xlsxUrl.match(/[?&]gid=(\d+)/);
-    const gid = gidMatch ? gidMatch[1] : null;
-    // pubhtmlをpubに変換
-    xlsxUrl = xlsxUrl.replace(/\/pubhtml(\?.*)?$/, '/pub');
-    // output=xlsx を付与
-    xlsxUrl += (xlsxUrl.includes('?') ? '&' : '?') + 'output=xlsx';
-    if(gid && !xlsxUrl.includes('gid=')) xlsxUrl += '&gid=' + gid;
+    let xlsxUrl=url.trim();
+    const gidMatch=xlsxUrl.match(/[?&]gid=(\d+)/);
+    const gid=gidMatch?gidMatch[1]:null;
+    xlsxUrl=xlsxUrl.replace(/\/pubhtml(\?.*)?$/,'/pub');
+    xlsxUrl+=((xlsxUrl.includes('?')?'&':'?')+'output=xlsx');
+    if(gid&&!xlsxUrl.includes('gid='))xlsxUrl+='&gid='+gid;
 
-    const res = await fetch(xlsxUrl);
-    if(!res.ok) throw new Error('スプレッドシートの取得に失敗しました ('+res.status+'）\nURLを確認してください');
-    const buf = await res.arrayBuffer();
-    const data = new Uint8Array(buf);
-    const wb = XLSX.read(data, {type:'array', raw:true});
+    const res=await fetch(xlsxUrl);
+    if(!res.ok)throw new Error('取得失敗('+res.status+'): URLが公開されているか確認してください');
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
 
-    // シート選択: gid指定がある場合は対応シートを探す、なければ最初のシート
-    let sheetName = wb.SheetNames[0];
+    // gid指定があれば対応シートを探す
+    let sheetName=wb.SheetNames[0];
     if(gid){
-      // SheetJSのPropsにsheetIdが入る場合がある
       for(const sn of wb.SheetNames){
-        const ws = wb.Sheets[sn];
-        if(ws['!sheetId'] && String(ws['!sheetId']) === gid){ sheetName = sn; break; }
+        const ws=wb.Sheets[sn];
+        if(ws['!sheetId']&&String(ws['!sheetId'])===gid){sheetName=sn;break;}
       }
     }
-    const ws = wb.Sheets[sheetName];
-    // raw:true で数値はそのまま（シリアル値・小数が正確に取れる）
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
-    if(!rows || rows.length===0){ alert('データが見つかりませんでした。\nシートが空か、URLが正しくない可能性があります。'); return; }
+    const ws=wb.Sheets[sheetName];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
 
-    // デバッグ: 最初の3行をコンソールに出力
-    console.log('[取込] シート名:', sheetName, '行数:', rows.length);
-    console.log('[取込] 1行目:', rows[0]);
-    console.log('[取込] 2行目:', rows[1]);
-    console.log('[取込] 3行目:', rows[2]);
+    console.log('[取込] シート:',sheetName,'行数:',rows.length);
+    if(rows.length>0)console.log('[取込] 1行目:',JSON.stringify(rows[0]));
+    if(rows.length>1)console.log('[取込] 2行目:',JSON.stringify(rows[1]));
+    if(rows.length>2)console.log('[取込] 3行目:',JSON.stringify(rows[2]));
+    if(rows.length>3)console.log('[取込] 4行目:',JSON.stringify(rows[3]));
 
-    importRows(rows);
+    if(!rows||rows.length===0){alert('データが見つかりませんでした。');return;}
+    const count=importSheetRows(rows);
+    alert(`${count}件の予定を取り込みました。`);
   }catch(err){
-    alert('取込エラー: '+err.message+'\n\n※URLが「ウェブに公開」されたpubhtmlのURLかご確認ください');
+    alert('取込エラー: '+err.message);
     console.error(err);
   }
+}
+
+// 実際の取込処理
+// スプレッドシート構造（画像確認済み）:
+//   行1: 「2025/01」などの年月ヘッダー（結合セル）
+//   行2以降: 1日=2行
+//     日付行: B列=日付の「日」数字(1-31), C列=曜日, E列=時刻1, G列=カテゴリ1, H列=タイトル1
+//     続き行: E列=時刻2, G列=カテゴリ2, H列=タイトル2
+// 列インデックス(0始まり): A=0,B=1,C=2,D=3,E=4,F=5,G=6,H=7
+function importSheetRows(rows){
+  let importCount=0;
+  const ud=getUserData();
+  let currentYear=null;
+  let currentMonth=null;
+  let currentDay=null;
+  let currentKey=null;
+
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i];
+    if(!row||row.length===0)continue;
+
+    // 全列を文字列化して年月ヘッダーを探す（例: "2025/01", "2025年1月"）
+    for(let ci=0;ci<Math.min(row.length,12);ci++){
+      const v=row[ci];
+      if(!v)continue;
+      const s=String(v).trim();
+      // "2025/01" or "2025/1" or "2025年01月" など
+      const ym=s.match(/^(\d{4})[\/年](\d{1,2})[月\/]?$/);
+      if(ym){
+        currentYear=parseInt(ym[1]);
+        currentMonth=parseInt(ym[2]);
+        currentDay=null;
+        currentKey=null;
+        console.log('[取込] 年月検出:',currentYear,currentMonth);
+        break;
+      }
+    }
+
+    // B列(index1)に1〜31の整数があれば日付行
+    const bVal=row[1];
+    if(typeof bVal==='number'&&Number.isInteger(bVal)&&bVal>=1&&bVal<=31&&currentYear&&currentMonth){
+      currentDay=bVal;
+      const mm=String(currentMonth).padStart(2,'0');
+      const dd=String(currentDay).padStart(2,'0');
+      currentKey=`${currentYear}-${mm}-${dd}`;
+    }
+    // B列がExcelシリアル値(大きい数)の場合も対応
+    if(typeof bVal==='number'&&bVal>40000&&bVal<70000){
+      currentKey=cellToDateKey(bVal);
+    }
+
+    // E列(index4)=時刻, G列(index6)=カテゴリ, H列(index7)=タイトル
+    if(!currentKey)continue;
+    const timeVal=row[4];
+    const catVal=row[6];
+    const titleVal=row[7];
+    if(!titleVal)continue;
+    const titleStr=String(titleVal).trim();
+    if(!titleStr)continue;
+    const timeStr=timeValToStr(timeVal);
+    const catStr=catVal?String(catVal).trim().toLowerCase():'';
+    const validCat=['vc','tx','vt','pl'].includes(catStr)?catStr:'';
+
+    if(!ud['ev_'+currentKey])ud['ev_'+currentKey]=[];
+    const dup=ud['ev_'+currentKey].some(ex=>ex.title===titleStr&&ex.time===timeStr);
+    if(!dup){
+      ud['ev_'+currentKey].push({time:timeStr,cat:validCat,title:titleStr});
+      importCount++;
+      console.log('[取込] 追加:',currentKey,timeStr,catStr,titleStr);
+    }
+  }
+
+  saveUserData(ud);touchUpdated();buildCal();
+  return importCount;
 }
 
 // ===== 共有・閲覧モード (GitHub Gist) =====
