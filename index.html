@@ -94,6 +94,7 @@
 .user-ev-cat-sel:focus{border-bottom-color:#1D9E75}
 .user-ev-title{flex:1;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text}
 .user-ev-row:hover .user-ev-title{border-bottom-color:var(--color-border-secondary)}
+.user-ev-title::placeholder{color:#bbb;opacity:1}
 .user-ev-title:focus{border-bottom-color:#1D9E75}
 .user-ev-del{opacity:0;background:none;border:none;color:#E24B4A;cursor:pointer;font-size:10px;padding:0 2px}
 .user-ev-row:hover .user-ev-del{opacity:0.7}
@@ -448,28 +449,32 @@ function buildCal(){
       else hiruEvs.push({...ev,_ui:ui});
     });
 
-    function renderSlotEvRow(ev, isDefault){
+    function renderSlotEvRow(ev, isDefault, slottype){
       const ui=ev._ui;
       const catVal=ev.cat||'';
       const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
       const catOpts='<option value="">-</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
       const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-      const iconCls=(!ev.time||!isNightTime(ev.time))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';
+      const iconCls=(slottype==='yoru')?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
       const chk0=chks[ui*3]||false,chk1=chks[ui*3+1]||false,chk2=chks[ui*3+2]||false;
       const chkStyle='width:14px;height:14px;cursor:pointer;accent-color:#1D9E75;flex-shrink:0';
+      // 昼は昼時間のみ、夜は夜時間のみ
+      const times=slottype==='yoru'?YORU_TIMES:HIRU_TIMES;
+      let timeOpts='<option value="">--:--</option>';
+      times.forEach(t=>{timeOpts+=`<option value="${t}"${ev.time===t?' selected':''}>${t}</option>`;});
       const chkHtml=ev.time?
-        `<div class="chk-wrap" style="display:flex;gap:0;width:72px;min-width:72px;justify-content:space-around;align-items:center">
-          <input type="checkbox" class="chk" style="${chkStyle}" ${chk0?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3}">
-          <input type="checkbox" class="chk" style="${chkStyle}" ${chk1?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+1}">
-          <input type="checkbox" class="chk" style="${chkStyle}" ${chk2?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+2}">
+        `<div class="chk-wrap" style="display:flex;gap:0;width:72px;min-width:72px;align-items:center">
+          <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${chkStyle}" ${chk0?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3}"></span>
+          <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${chkStyle}" ${chk1?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+1}"></span>
+          <span style="flex:1;display:flex;justify-content:center"><input type="checkbox" class="chk" style="${chkStyle}" ${chk2?'checked':''} data-chkkey="${key}" data-chkidx="${ui*3+2}"></span>
         </div>`:
         `<div class="chk-wrap" style="width:72px;min-width:72px"></div>`;
       const delHtml=isDefault?'':` <button class="user-ev-del" data-del="1">✕</button>`;
       return `<div class="user-ev-row" data-evkey="${key}" data-evui="${ui}" style="display:flex;align-items:center">
         <span class="${iconCls}" data-evicon="1"></span>
-        <select class="user-ev-time-sel" data-field="time">${buildTimeOptions(ev.time||'')}</select>
+        <select class="user-ev-time-sel" data-field="time">${timeOpts}</select>
         <select class="${catCls}" data-field="cat">${catOpts}</select>
-        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="予定を入力" style="flex:1;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text">
+        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="○" style="flex:1;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text">
         ${chkHtml}${delHtml}
       </div>`;
     }
@@ -503,13 +508,13 @@ function buildCal(){
     }
 
     evHtml+=`<div class="slot-row"><div class="slot-evs">`;
-    hiruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev, hiruEvs.length===1&&!ev.time&&!ev.title);});
+    hiruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev, hiruEvs.length===1&&!ev.time&&!ev.title, 'hiru');});
     if(hiruEvs.length>1||(hiruEvs.length===1&&(hiruEvs[0].time||hiruEvs[0].title)))
       evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="hiru" title="昼の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div></div>`;
 
     evHtml+=`<div class="slot-row"><div class="slot-evs">`;
-    yoruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev, yoruEvs.length===1&&!ev.time&&!ev.title);});
+    yoruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev, yoruEvs.length===1&&!ev.time&&!ev.title, 'yoru');});
     if(yoruEvs.length>1||(yoruEvs.length===1&&(yoruEvs[0].time||yoruEvs[0].title)))
       evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="yoru" title="夜の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div></div>`;
