@@ -439,7 +439,7 @@ function buildCal(){
     if(isToday)cls+=' today';
 
     const userEvs=(ud['ev_'+key])||[];
-    const chks=(ud['chk_'+key])||[false,false,false];
+    const chks=(ud['chk_'+key])||[];
 
     // 昼・夜に分類
     const hiruEvs=[];const yoruEvs=[];
@@ -452,42 +452,37 @@ function buildCal(){
       const ui=ev._ui;
       const catVal=ev.cat||'';
       const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
-      const catOpts='<option value="">--</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
+      const catOpts='<option value="">-</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
       const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
       const iconCls=(!ev.time||!isNightTime(ev.time))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';
+      const chkVal=chks[ui]||false;
+      const chkHtml=ev.time?`<input type="checkbox" class="chk" style="width:14px;height:14px;cursor:pointer;accent-color:#1D9E75;margin-left:3px;flex-shrink:0" ${chkVal?'checked':''} data-chkkey="${key}" data-chkidx="${ui}">`:''
       return `<div class="user-ev-row" data-evkey="${key}" data-evui="${ui}">
         <span class="${iconCls}" data-evicon="1"></span>
         <select class="user-ev-time-sel" data-field="time">${buildTimeOptions(ev.time||'')}</select>
         <select class="${catCls}" data-field="cat">${catOpts}</select>
-        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="タイトル">
+        <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="予定を入力">
+        ${chkHtml}
         <button class="user-ev-del" data-del="1">✕</button>
       </div>`;
     }
 
     let evHtml='';
     // 昼スロット行（常時表示）
-    evHtml+=`<div class="slot-row"><span class="ev-icon ev-icon-hiru slot-icon"></span><div class="slot-evs">`;
+    evHtml+=`<div class="slot-row"><div class="slot-evs">`;
     hiruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev);});
     evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="hiru" title="昼の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div></div>`;
     // 夜スロット行（常時表示）
-    evHtml+=`<div class="slot-row"><span class="ev-icon ev-icon-yoru slot-icon"></span><div class="slot-evs">`;
+    evHtml+=`<div class="slot-row"><div class="slot-evs">`;
     yoruEvs.forEach(ev=>{evHtml+=renderSlotEvRow(ev);});
     evHtml+=`<button class="slot-add-btn" data-slotkey="${key}" data-slottype="yoru" title="夜の予定を追加"><i class="ti ti-plus" style="font-size:9px"></i></button>`;
     evHtml+=`</div></div>`;
-
-    // checks col — always show
-    const chkHtml=`<div class="checks-col">
-      <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[0]?'checked':''} data-chkkey="${key}" data-chkidx="0"></div>
-      <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[1]?'checked':''} data-chkkey="${key}" data-chkidx="1"></div>
-      <div class="chk-wrap"><input type="checkbox" class="chk" ${chks[2]?'checked':''} data-chkkey="${key}" data-chkidx="2"></div>
-    </div>`;
 
     html+=`<div class="${cls}" id="day-${key}">
       <div class="day-header">
         <div class="day-num"><span class="dnum">${cur.getDate()}</span><span class="dwk">${DOW[dow]}</span></div>
         <div class="events-col">${evHtml}</div>
-        ${chkHtml}
       </div>
       <div class="add-row" id="addrow-${key}" style="display:none">
         <span class="ev-icon ev-icon-hiru" id="add-icon-${key}"></span>
@@ -607,7 +602,8 @@ function scrollToToday(){
 
 function saveChk(key,idx,val){
   const ud=getUserData();
-  if(!ud['chk_'+key])ud['chk_'+key]=[false,false,false];
+  if(!ud['chk_'+key])ud['chk_'+key]=[];
+  while(ud['chk_'+key].length<=idx)ud['chk_'+key].push(false);
   ud['chk_'+key][idx]=val;
   saveUserData(ud);touchUpdated();
 }
@@ -619,8 +615,7 @@ function saveNote(mk,val){
 function addSlotEv(key,slottype){
   const ud=getUserData();
   if(!ud['ev_'+key])ud['ev_'+key]=[];
-  const defaultTime=slottype==='hiru'?'13:00':'21:00';
-  ud['ev_'+key].push({title:'',time:defaultTime,cat:''});
+  ud['ev_'+key].push({title:'',time:'',cat:''});
   saveUserData(ud);touchUpdated();buildCal();
   // フォーカスを新しく追加した行のタイトル入力に当てる
   setTimeout(()=>{
@@ -668,7 +663,26 @@ function updateUserEv(key,ui,field,val){
   if(field==='time'){
     // アイコン更新
     const rows=document.querySelectorAll(`[data-evkey="${key}"][data-evui="${ui}"]`);
-    rows.forEach(row=>{const ic=row.querySelector('.ev-icon');if(ic)ic.className=(!val||!isNightTime(val))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';});
+    rows.forEach(row=>{
+      const ic=row.querySelector('.ev-icon');
+      if(ic)ic.className=(!val||!isNightTime(val))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';
+      // チェックボックス表示/非表示
+      let chkEl=row.querySelector('input[type="checkbox"][data-chkkey]');
+      if(val){
+        if(!chkEl){
+          chkEl=document.createElement('input');
+          chkEl.type='checkbox';
+          chkEl.className='chk';
+          chkEl.style.cssText='width:14px;height:14px;cursor:pointer;accent-color:#1D9E75;margin-left:3px;flex-shrink:0';
+          chkEl.dataset.chkkey=key;
+          chkEl.dataset.chkidx=String(ui);
+          const delBtn=row.querySelector('[data-del]');
+          if(delBtn)row.insertBefore(chkEl,delBtn);else row.appendChild(chkEl);
+        }
+      } else {
+        if(chkEl)chkEl.remove();
+      }
+    });
   }
   saveUserData(ud);touchUpdated();
 }
