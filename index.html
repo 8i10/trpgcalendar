@@ -1203,9 +1203,11 @@ function buildCalView(ud){
       </div>`;
     }
 
-    const hiruHtml=hiruEvs.map(ev=>viewRow(ev,'hiru')).join('');
-    const yoruHtml=yoruEvs.map(ev=>viewRow(ev,'yoru')).join('');
-    const divider=(hiruHtml&&yoruHtml)?`<div style="border-top:0.5px dotted rgba(0,0,0,0.07);margin:1px 0"></div>`:'';
+    const emptyHiru=`<div style="display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px"><span class="ev-icon ev-icon-hiru"></span></div>`;
+    const emptyYoru=`<div style="display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px"><span class="ev-icon ev-icon-yoru"></span></div>`;
+    const hiruHtml=hiruEvs.length>0?hiruEvs.map(ev=>viewRow(ev,'hiru')).join(''):emptyHiru;
+    const yoruHtml=yoruEvs.length>0?yoruEvs.map(ev=>viewRow(ev,'yoru')).join(''):emptyYoru;
+    const divider=`<div style="border-top:0.5px dotted rgba(0,0,0,0.07);margin:1px 0"></div>`;
 
     html+=`<div class="${cls}" id="day-${key}">
       <div class="day-header">
