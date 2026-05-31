@@ -179,8 +179,7 @@
     <button class="today-btn" onclick="scrollToToday()">今日</button>
     <button class="today-btn" onclick="document.getElementById('xlsxInput').click()" title="スプレッドシートから予定を取り込む">📥取込</button>
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
-    <button class="logout-btn" onclick="doLogout()"><i class="ti ti-logout"></i></button>
-    <div class="avatar" id="avatarLabel">？</div>
+    <div class="avatar" id="avatarLabel" onclick="doLogout()" title="ログアウト" style="cursor:pointer">？</div>
   </div>
   <div class="month-sticky">
     <span class="month-sticky-label" id="stickyMonth">—</span>
