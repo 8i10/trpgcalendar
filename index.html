@@ -1283,6 +1283,9 @@ function setupScrollSpy(){
     // 最初のdividerがまだ画面内にある間はstickyを隠す
     const firstRect=all[0].getBoundingClientRect();
     const firstVisible=(firstRect.top<stickyBottom+4&&firstRect.bottom>62);
+    stickyEl.style.height=firstVisible?'0':'';
+    stickyEl.style.overflow=firstVisible?'hidden':'';
+    stickyEl.style.borderTop=firstVisible?'none':'';
     stickyEl.style.opacity=firstVisible?'0':'1';
     stickyEl.style.pointerEvents=firstVisible?'none':'auto';
     // 現在の月を更新
