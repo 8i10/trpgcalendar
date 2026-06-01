@@ -165,25 +165,25 @@
 /* 日程未定テーブル */
 .undecided-head{display:flex;align-items:center;gap:3px;padding:4px 6px;background:#1D9E75;border-radius:4px 4px 0 0;margin-top:6px}
 .undecided-head span{font-size:11px;font-weight:600;color:#fff;font-family:'Zen Kaku Gothic New',sans-serif;overflow:hidden;white-space:nowrap}
-.undecided-head .uh-scenario{flex:3.3}
-.undecided-head .uh-format{flex:0.8}
-.undecided-head .uh-kppl{flex:2.1}
+.undecided-head .uh-scenario{flex:3}
+.undecided-head .uh-format{flex:0.8;text-align:center}
+.undecided-head .uh-kppl{flex:2.8}
 .undecided-head /* removed uh-pl */.uh-pl_unused{flex:2.5}
-.undecided-head .uh-memo{flex:3.8}
-.undecided-head .uh-del{width:18px;flex-shrink:0}
+.undecided-head .uh-memo{flex:3.6}
+.undecided-head .uh-del{width:12px;flex-shrink:0}
 .undecided-row{display:flex;align-items:center;gap:3px;padding:2px 6px;min-height:24px;border-radius:3px;border-bottom:0.5px solid rgba(0,0,0,0.06)}
 .undecided-row input{border:none;background:transparent;font-size:10px;font-family:'Zen Kaku Gothic New',sans-serif;color:#666;outline:none;padding:2px 4px;line-height:1.5;min-width:0;border-radius:3px;transition:background 0.1s}
 .undecided-row input:hover{background:rgba(0,0,0,0.03)}
 .undecided-row input:focus{background:rgba(0,0,0,0.03)}
 .undecided-row input::placeholder{color:#ccc}
-.undecided-row .ui-scenario{flex:3.3 1 0}
-.undecided-row .ui-format{flex:0.8;font-size:9px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0 1px;outline:none;cursor:pointer;font-weight:700;font-family:'Zen Kaku Gothic New',sans-serif;color:#333;border-radius:0;-webkit-appearance:none;appearance:none}
+.undecided-row .ui-scenario{flex:3 1 0}
+.undecided-row .ui-format{flex:0.8;font-size:9px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0;outline:none;cursor:pointer;font-weight:700;font-family:'Zen Kaku Gothic New',sans-serif;color:#333;border-radius:0;-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center}
 .undecided-row .ui-format:hover{border-bottom-color:var(--color-border-secondary)}
 .undecided-row .ui-format:focus{border-bottom-color:#1D9E75;background:transparent}
-.undecided-row .ui-kppl{flex:2.1}
+.undecided-row .ui-kppl{flex:2.8}
 .undecided-row /* removed ui-pl */.ui-pl_unused{flex:2.5}
-.undecided-row .ui-memo{flex:3.8 1 0}
-.undecided-del-btn{width:18px;flex-shrink:0;background:none;border:none;color:#ddd;cursor:pointer;font-size:11px;padding:0;line-height:1;text-align:center}
+.undecided-row .ui-memo{flex:3.6 1 0}
+.undecided-del-btn{width:12px;flex-shrink:0;background:none;border:none;color:#ddd;cursor:pointer;font-size:9px;padding:0;line-height:1;text-align:right;margin-left:auto}
 .undecided-del-btn:hover{color:#e24b4a!important}
 .undecided-add-btn{margin-top:4px;background:none;border:1px dashed #ccc;color:#aaa;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;width:100%;font-family:'Zen Kaku Gothic New',sans-serif}
 .undecided-add-btn:hover{border-color:#1D9E75;color:#1D9E75}
@@ -237,6 +237,20 @@
   /* シナリオ名とメモ欄の横幅を入れ替え */
   .undecided-head .uh-scenario,.undecided-row .ui-scenario{flex:4.5 1 0!important;min-width:0!important}
   .undecided-head .uh-memo,.undecided-row .ui-memo{flex:1.8 1 0!important;min-width:0!important}
+  /* スマホ: 日程未定テーブル */
+  .undecided-head{flex-wrap:nowrap!important}
+  .undecided-head span{font-size:9px!important}
+  .undecided-head .uh-scenario{flex:3 1 0!important}
+  .undecided-head .uh-format{flex:0.7!important;text-align:center!important}
+  .undecided-head .uh-kppl{flex:2.3 1 0!important}
+  .undecided-head .uh-memo{display:none!important}
+  .undecided-head .uh-del{display:none!important}
+  .undecided-row{flex-wrap:wrap!important;align-items:flex-start!important}
+  .undecided-row .ui-scenario{flex:3 1 0!important}
+  .undecided-row .ui-format{flex:0.7!important}
+  .undecided-row .ui-kppl{flex:2.3 1 0!important}
+  .undecided-row .ui-memo{flex:100%!important;padding-left:4px;padding-top:2px;border-top:0.5px solid rgba(0,0,0,0.05);min-width:0!important}
+  .undecided-del-btn{font-size:8px!important}
   /* メモページtextarea幅を制限 */
   #memoPageModal .mp-card textarea{max-width:100%;width:100%!important;font-size:11px!important}
   #memoPageModal .mp-body{padding:8px}
@@ -1074,7 +1088,7 @@ function buildCal(){
       const isVirt=ev._virt||false;
       const catVal=ev.cat||'';
       const catCls=catVal?`user-ev-cat-sel ev-cat cat-${catVal}`:'user-ev-cat-sel ev-cat';
-      const catOpts='<option value="">-</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option><option value="pl"'+(catVal==='pl'?' selected':'')+'>PL</option>';
+      const catOpts='<option value="">-</option><option value="vc"'+(catVal==='vc'?' selected':'')+'>VC</option><option value="tx"'+(catVal==='tx'?' selected':'')+'>TX</option><option value="vt"'+(catVal==='vt'?' selected':'')+'>VT</option>';
       const titleSafe=(ev.title||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
       const iconCls=(slottype==='yoru')?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
       const times=slottype==='yoru'?YORU_TIMES:HIRU_TIMES;
@@ -1143,7 +1157,6 @@ function buildCal(){
           <option value="vc">VC</option>
           <option value="tx">TX</option>
           <option value="vt">VT</option>
-          <option value="pl">PL</option>
         </select>
         <input class="add-title-in" type="text" id="atl-${key}" placeholder="タイトル…" data-addinput="${key}">
         <button class="add-confirm" data-addconfirm="${key}">追加</button>
