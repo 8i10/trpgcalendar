@@ -1077,12 +1077,15 @@ function buildCal(){
     const userEvs=(ud['ev_'+key])||[];
     const memos=ud['memo_'+key]||{};
 
-    // 昼・夜に分類（空エントリは昼扱い）
+    // 昼・夜に分類（時刻があればisNightTime、なければslotフィールドで判定）
     const hiruEvs=[];const yoruEvs=[];
     userEvs.forEach((ev,ui)=>{
       // 空エントリ（time/title/catが全て空）はスキップ（仮行として別途表示）
       if(!ev.time&&!ev.title&&!ev.cat)return;
-      if(isNightTime(ev.time))yoruEvs.push({...ev,_ui:ui});
+      // slotが未設定で時刻がある場合はslotを補完して保存
+      if(!ev.slot&&ev.time){ev.slot=isNightTime(ev.time)?'yoru':'hiru';}
+      const isYoru=ev.time?isNightTime(ev.time):(ev.slot==='yoru');
+      if(isYoru)yoruEvs.push({...ev,_ui:ui});
       else hiruEvs.push({...ev,_ui:ui});
     });
     // 昼・夜それぞれ最低1行（既存データがない場合のみ仮行を表示用に作成、保存はしない）
@@ -1270,8 +1273,10 @@ document.addEventListener('DOMContentLoaded', function(){
         const slottype=row.dataset.virt;
         const ud=getUserData();
         if(!ud['ev_'+key])ud['ev_'+key]=[];
-        const newEntry={time:'',cat:'',title:''};
+        const newEntry={time:'',cat:'',title:'',slot:slottype};
         newEntry[field]=t.value;
+        // timeが設定された場合はslotを更新
+        if(field==='time')newEntry.slot=(!t.value||!isNightTime(t.value))?'hiru':'yoru';
         ud['ev_'+key].push(newEntry);
         saveUserData(ud);touchUpdated();buildCal();
         return;
@@ -1313,9 +1318,10 @@ document.addEventListener('DOMContentLoaded', function(){
     const row = t.closest('.user-ev-row');
     if(row && row.dataset.virt && t.value.trim()){
       const key = row.dataset.evkey;
+      const slot = row.dataset.virt; // 'hiru' or 'yoru'
       const ud=getUserData();
       if(!ud['ev_'+key])ud['ev_'+key]=[];
-      ud['ev_'+key].push({time:'',cat:'',title:t.value.trim()});
+      ud['ev_'+key].push({time:'',cat:'',title:t.value.trim(),slot:slot});
       saveUserData(ud);touchUpdated();buildCal();
     }
   });
@@ -1643,7 +1649,7 @@ function confirmAdd(key){
   const cat=document.getElementById('ac-'+key).value;
   const ud=getUserData();
   if(!ud['ev_'+key])ud['ev_'+key]=[];
-  ud['ev_'+key].push({title,time,cat});
+  ud['ev_'+key].push({title,time,cat,slot:(!time||!isNightTime(time))?'hiru':'yoru'});
   saveUserData(ud);touchUpdated();buildCal();
 }
 function updateUserEv(key,ui,field,val){
@@ -1652,6 +1658,8 @@ function updateUserEv(key,ui,field,val){
   if(!ud['ev_'+key]||ud['ev_'+key][ui]===undefined)return;
   ud['ev_'+key][ui][field]=val;
   if(field==='time'){
+    // 時刻変更でslotも更新
+    ud['ev_'+key][ui].slot=(!val||!isNightTime(val))?'hiru':'yoru';
     const rows=document.querySelectorAll(`[data-evkey="${key}"][data-evui="${ui}"]`);
     rows.forEach(row=>{
       const ic=row.querySelector('.ev-icon');
