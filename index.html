@@ -303,7 +303,7 @@
           <input type="password" id="loginPass" placeholder="パスワード" autocomplete="current-password">
           <label style="display:flex;align-items:center;gap:4px">GitHub Token <span style="font-size:10px;color:#aaa;font-weight:400">（別端末と同期する場合）</span></label>
           <input type="password" id="loginToken" placeholder="ghp_xxxxxxxxxxxx（任意）" autocomplete="off">
-          <div class="err" id="loginErr">メールアドレスまたはパスワードが違います</div>
+          <div class="err" id="loginErr" style="line-height:1.5"></div>
           <button type="submit" class="btn-primary">ログイン</button>
         </form>
         <div class="reg-link">はじめての方は <a onclick="showReg()">新規登録</a></div>
@@ -1008,12 +1008,18 @@ function doLogin(){
   const p=document.getElementById('loginPass').value;
   const t=document.getElementById('loginToken').value.trim();
   const u=getUsers();
+  const errEl=document.getElementById('loginErr');
   if(u[e]&&u[e].pass===p){
     currentUser=e;
     if(t)setSyncToken(t);
     loginOk(u[e].name);
   } else {
-    document.getElementById('loginErr').style.display='block';
+    if(!u[e]){
+      errEl.innerHTML='このアカウントは未登録です。<a onclick="showReg()" style="color:#E24B4A;text-decoration:underline;cursor:pointer">新規登録はこちら</a><br><span style="font-size:10px">※アプリ化直後は再登録が必要です</span>';
+    } else {
+      errEl.textContent='パスワードが違います';
+    }
+    errEl.style.display='block';
   }
 }
 async function loginOk(name){
