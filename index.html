@@ -1182,6 +1182,9 @@ function buildMemoPage(){
 
   // ── 日程未定 ──
   const undecided=ud['undecided_rows']||[{scenario:'',format:'',kp:'',pl:'',memo:''}];
+  const isMobile=window.innerWidth<=480;
+  const scFlex=isMobile?'4.5 1 0':'3.5 1 0';
+  const moFlex=isMobile?'1.8 1 0':'2.8 1 0';
   let rowsHtml='';
   undecided.forEach((row,i)=>{
     const sc=(row.scenario||'').replace(/"/g,'&quot;');
@@ -1191,22 +1194,22 @@ function buildMemoPage(){
     const mo=(row.memo||'').replace(/"/g,'&quot;');
     const fmtOpts=['','vc','vt','tx'].map(v=>`<option value="${v}"${fmt===v?' selected':''}>${v?v.toUpperCase():'--'}</option>`).join('');
     rowsHtml+=`<div class="undecided-row">
-      <input class="ui-scenario" type="text" value="${sc}" placeholder="シナリオ名…" oninput="saveUndecided(${i},'scenario',this.value)">
+      <input class="ui-scenario" style="flex:${scFlex};min-width:0" type="text" value="${sc}" placeholder="シナリオ名…" oninput="saveUndecided(${i},'scenario',this.value)">
       <select class="ui-format" onchange="saveUndecided(${i},'format',this.value)">${fmtOpts}</select>
       <input class="ui-kp" type="text" value="${kp}" placeholder="KP…" oninput="saveUndecided(${i},'kp',this.value)">
       <input class="ui-pl" type="text" value="${pl}" placeholder="PL…" oninput="saveUndecided(${i},'pl',this.value)">
-      <input class="ui-memo" type="text" value="${mo}" placeholder="メモ…" oninput="saveUndecided(${i},'memo',this.value)">
+      <input class="ui-memo" style="flex:${moFlex};min-width:0" type="text" value="${mo}" placeholder="メモ…" oninput="saveUndecided(${i},'memo',this.value)">
       <button class="undecided-del-btn" onclick="deleteUndecidedRow(${i})" title="削除">×</button>
     </div>`;
   });
   html+=`<div class="mp-card">
     <div class="mp-card-title">＜日程未定＞</div>
     <div class="undecided-head">
-      <span class="uh-scenario">シナリオ</span>
+      <span class="uh-scenario" style="flex:${scFlex};min-width:0">シナリオ</span>
       <span class="uh-format">形式</span>
       <span class="uh-kp">KP</span>
       <span class="uh-pl">PL</span>
-      <span class="uh-memo">その他メモ</span>
+      <span class="uh-memo" style="flex:${moFlex};min-width:0">その他メモ</span>
       <span class="uh-del"></span>
     </div>
     <div id="undecidedRows">${rowsHtml}</div>
