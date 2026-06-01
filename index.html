@@ -169,13 +169,13 @@
 .undecided-row input:hover{background:rgba(0,0,0,0.03)}
 .undecided-row input:focus{background:rgba(0,0,0,0.03)}
 .undecided-row input::placeholder{color:#ccc}
-.undecided-row .ui-scenario{flex:3.5}
+.undecided-row .ui-scenario{flex:3.5 1 0}
 .undecided-row .ui-format{flex:1.4;border:none;background:transparent;font-size:9px;font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;color:#333;outline:none;padding:2px 2px;border-radius:3px;cursor:pointer;transition:background 0.1s}
 .undecided-row .ui-format:hover{background:rgba(0,0,0,0.03)}
 .undecided-row .ui-format:focus{background:rgba(0,0,0,0.03)}
 .undecided-row .ui-kp{flex:1.2}
 .undecided-row .ui-pl{flex:2.5}
-.undecided-row .ui-memo{flex:2.8}
+.undecided-row .ui-memo{flex:2.8 1 0}
 .undecided-del-btn{width:18px;flex-shrink:0;background:none;border:none;color:#ddd;cursor:pointer;font-size:11px;padding:0;line-height:1;text-align:center}
 .undecided-del-btn:hover{color:#e24b4a!important}
 .undecided-add-btn{margin-top:4px;background:none;border:1px dashed #ccc;color:#aaa;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;width:100%;font-family:'Zen Kaku Gothic New',sans-serif}
@@ -222,8 +222,8 @@
   /* login card */
   .login-card{padding:1.5rem 1.2rem}
   /* シナリオ名とメモ欄の横幅を入れ替え */
-  .undecided-head .uh-scenario,.undecided-row .ui-scenario{flex:4.5}
-  .undecided-head .uh-memo,.undecided-row .ui-memo{flex:1.8}
+  .undecided-head .uh-scenario,.undecided-row .ui-scenario{flex:4.5 1 0!important;min-width:0!important}
+  .undecided-head .uh-memo,.undecided-row .ui-memo{flex:1.8 1 0!important;min-width:0!important}
 }
 </style>
 
