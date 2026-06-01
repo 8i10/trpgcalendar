@@ -1273,28 +1273,31 @@ document.addEventListener('DOMContentLoaded', function(){
 
 function setupScrollSpy(){
   const dividers=document.querySelectorAll('.month-divider');
-  // Use a single observer that tracks which divider is at/above the sticky header
-  const obs=new IntersectionObserver(entries=>{
+  const stickyEl=document.querySelector('.month-sticky');
+
+  function updateSticky(){
     const all=Array.from(document.querySelectorAll('.month-divider'));
-    const stickyEl=document.querySelector('.month-sticky');
-    if(!stickyEl)return;
+    if(!stickyEl||all.length===0)return;
     const stickyBottom=stickyEl.getBoundingClientRect().bottom;
+    // 最初のdividerがまだ画面内にある間はstickyを隠す
+    const firstRect=all[0].getBoundingClientRect();
+    const firstVisible=(firstRect.top<stickyBottom+4&&firstRect.bottom>62);
+    stickyEl.style.opacity=firstVisible?'0':'1';
+    stickyEl.style.pointerEvents=firstVisible?'none':'auto';
+    // 現在の月を更新
     let current=null;
     for(const d of all){
       const rect=d.getBoundingClientRect();
       if(rect.top<=stickyBottom+2)current=d;
       else break;
     }
-    if(current){
-      document.getElementById('stickyMonth').textContent=current.textContent;
-      const stickyBar=document.querySelector('.month-sticky');
-      if(stickyBar&&all[0]){
-        const fr=all[0].getBoundingClientRect();
-        stickyBar.style.opacity=(fr.top>=62&&fr.bottom>62)?'0':'1';
-        stickyBar.style.pointerEvents=(fr.top>=62&&fr.bottom>62)?'none':'auto';
-      }
-    }
-  },{threshold:[0,0.1,1],rootMargin:'0px 0px -30% 0px'});
+    if(current)document.getElementById('stickyMonth').textContent=current.textContent;
+  }
+
+  window.addEventListener('scroll',updateSticky,{passive:true});
+  updateSticky();
+
+  const obs=new IntersectionObserver(()=>updateSticky(),{threshold:[0,0.1,1]});
   dividers.forEach(d=>obs.observe(d));
 }
 
