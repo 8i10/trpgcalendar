@@ -49,7 +49,7 @@
 .month-sticky-icons span{flex:1;text-align:center;font-size:12px;line-height:1}
 
 /* MONTH DIVIDER */
-.month-divider{background:transparent;color:transparent;padding:0;font-size:0;height:0;overflow:hidden;pointer-events:none}
+.month-divider{background:#1D9E75;color:#fff;padding:3px 8px;font-size:13px;font-weight:600}
 
 /* DAY ROW */
 .day-row{border-bottom:0.5px solid rgba(0,0,0,0.20);background:var(--color-background-primary)}
@@ -1287,7 +1287,12 @@ function setupScrollSpy(){
     }
     if(current){
       document.getElementById('stickyMonth').textContent=current.textContent;
-      stickyEl.style.visibility='visible';
+      const stickyBar=document.querySelector('.month-sticky');
+      if(stickyBar&&all[0]){
+        const fr=all[0].getBoundingClientRect();
+        stickyBar.style.opacity=(fr.top>=62&&fr.bottom>62)?'0':'1';
+        stickyBar.style.pointerEvents=(fr.top>=62&&fr.bottom>62)?'none':'auto';
+      }
     }
   },{threshold:[0,0.1,1],rootMargin:'0px 0px -30% 0px'});
   dividers.forEach(d=>obs.observe(d));
