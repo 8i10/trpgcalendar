@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <link rel="icon" type="image/png" href="favicon.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -179,6 +180,48 @@
 .undecided-del-btn:hover{color:#e24b4a!important}
 .undecided-add-btn{margin-top:4px;background:none;border:1px dashed #ccc;color:#aaa;font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;width:100%;font-family:'Zen Kaku Gothic New',sans-serif}
 .undecided-add-btn:hover{border-color:#1D9E75;color:#1D9E75}
+
+/* SYNC MODAL */
+.sync-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1500;display:flex;align-items:center;justify-content:center}
+.sync-modal-card{background:#fff;border-radius:12px;padding:20px 22px;max-width:360px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)}
+.sync-modal-card h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.sync-modal-card p{font-size:11px;color:#666;margin-bottom:12px;line-height:1.6}
+.sync-modal-card label{display:block;font-size:11px;color:#555;margin-bottom:3px;margin-top:10px}
+.sync-modal-card input{width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;font-size:12px;box-sizing:border-box}
+.sync-status{font-size:11px;margin-top:8px;padding:6px 9px;border-radius:6px;display:none}
+.sync-status.ok{background:#e8f8f2;color:#0F6E56;display:block}
+.sync-status.err{background:#fdecea;color:#c0392b;display:block}
+.sync-modal-btns{display:flex;gap:8px;margin-top:14px}
+.sync-modal-btns button{flex:1;padding:8px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.sync-btn-cancel{background:#f0f0f0;color:#555}
+.sync-btn-ok{background:#1D9E75;color:#fff}
+.sync-indicator{font-size:10px;color:rgba(255,255,255,0.75);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* MOBILE */
+@media(max-width:480px){
+  .app{max-width:100%;font-size:12px}
+  .month-sticky-icons{display:none!important}
+  /* チェックボックス列を非表示 */
+  .chk-wrap{display:none!important}
+  [style*="width:72px"]{display:none!important}
+  /* ヘッダー調整 */
+  .header-updated{font-size:9px}
+  .header{padding:4px 8px;gap:5px}
+  /* 日付列を少し狭く */
+  .day-num{width:36px;min-width:36px}
+  .day-row::before{left:36px}
+  .dnum{font-size:11px}
+  .dwk{font-size:8px}
+  /* events */
+  .ev-title{font-size:10px}
+  .ev-time{font-size:9px;width:28px;min-width:28px}
+  .user-ev-title{font-size:10px!important}
+  .user-ev-time-sel{font-size:9px!important;width:30px!important;min-width:30px!important}
+  /* add-col */
+  .add-col{display:none!important}
+  /* login card */
+  .login-card{padding:1.5rem 1.2rem}
+}
 </style>
 
 <div class="app" id="app">
@@ -191,6 +234,8 @@
         <input type="email" id="loginEmail" placeholder="example@mail.com">
         <label>パスワード</label>
         <input type="password" id="loginPass" placeholder="パスワード">
+        <label style="display:flex;align-items:center;gap:4px">GitHub Token <span style="font-size:10px;color:#aaa;font-weight:400">（別端末と同期する場合）</span></label>
+        <input type="password" id="loginToken" placeholder="ghp_xxxxxxxxxxxx（任意）" autocomplete="off">
         <div class="err" id="loginErr">メールアドレスまたはパスワードが違います</div>
         <button class="btn-primary" onclick="doLogin()">ログイン</button>
         <div class="reg-link">はじめての方は <a onclick="showReg()">新規登録</a></div>
@@ -199,6 +244,9 @@
         <label>お名前</label><input type="text" id="regName" placeholder="山田 太郎">
         <label>メールアドレス</label><input type="email" id="regEmail" placeholder="example@mail.com">
         <label>パスワード</label><input type="password" id="regPass" placeholder="6文字以上">
+        <label style="display:flex;align-items:center;gap:4px">GitHub Token <span style="font-size:10px;color:#aaa;font-weight:400">（別端末と同期する場合）</span></label>
+        <input type="password" id="regToken" placeholder="ghp_xxxxxxxxxxxx（任意）" autocomplete="off">
+        <div style="font-size:10px;color:#888;margin-top:4px;line-height:1.5">TokenはGitHub Settings→Developer settings→Personal access tokens→Classic から発行。<b>gist</b>スコープのみ必要。</div>
         <div class="err" id="regErr"></div>
         <button class="btn-primary" onclick="doReg()">登録</button>
         <div class="reg-link"><a onclick="showLogin()">← ログインに戻る</a></div>
@@ -217,11 +265,14 @@
     </div>
     <button class="today-btn" onclick="scrollToToday()">今日</button>
     <button class="today-btn" onclick="publishView()" title="閲覧用URLを発行">🔗共有</button>
+    <span class="sync-indicator" id="syncIndicator" onclick="showSyncModal()" title="同期設定" style="display:none">☁</span>
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
     <div class="avatar" id="avatarLabel" onclick="toggleAvatarMenu(event)" style="cursor:pointer">？</div>
     <div id="avatarMenu" style="display:none;position:absolute;top:34px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:110px;overflow:hidden">
       <div style="display:none" onclick="document.getElementById('xlsxInput').click();closeAvatarMenu()">📥 ファイル取込</div>
       <div style="display:none" onclick="closeAvatarMenu();importFromSpreadsheetUrl()">🌐 URL取込</div>
+      <div onclick="showSyncModal();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">☁ 同期設定</div>
+      <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="openMemoPage();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📋 メモページ</div>
       <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
@@ -620,17 +671,178 @@ RAW.forEach(r=>{
 let currentUser=null;
 const TODAY=ymd(new Date());
 
+// ===== ユーザーデータ (localStorage) =====
 function getUsers(){try{return JSON.parse(localStorage.getItem('cal_users')||'{}')}catch{return{}}}
 function saveUsers(u){localStorage.setItem('cal_users',JSON.stringify(u))}
 function getUserData(){if(!currentUser)return{};try{return JSON.parse(localStorage.getItem('cal_ud_'+currentUser)||'{}')}catch{return{}}}
-function saveUserData(d){localStorage.setItem('cal_ud_'+currentUser,JSON.stringify(d))}
+function saveUserData(d){
+  localStorage.setItem('cal_ud_'+currentUser,JSON.stringify(d));
+  scheduleSyncPush();
+}
 
+// ===== Gist同期 =====
+const SYNC_TOKEN_KEY='cal_sync_token';
+const SYNC_DEBOUNCE_MS=3000;
+let syncTimer=null;
+
+function getSyncToken(){return localStorage.getItem(SYNC_TOKEN_KEY+':'+currentUser)||''}
+function setSyncToken(t){if(t)localStorage.setItem(SYNC_TOKEN_KEY+':'+currentUser,t);else localStorage.removeItem(SYNC_TOKEN_KEY+':'+currentUser)}
+function getSyncGistId(){return localStorage.getItem('cal_sync_gist:'+currentUser)||''}
+function setSyncGistId(id){if(id)localStorage.setItem('cal_sync_gist:'+currentUser,id);else localStorage.removeItem('cal_sync_gist:'+currentUser)}
+
+function syncKeyForUser(email){return btoa(email).replace(/[^a-zA-Z0-9]/g,'').slice(0,20)}
+
+function setSyncIndicator(state){
+  // state: 'ok'|'err'|'syncing'|'none'
+  const el=document.getElementById('syncIndicator');
+  if(!el)return;
+  if(state==='none'){el.style.display='none';return;}
+  el.style.display='';
+  if(state==='ok') el.textContent='☁✓';
+  else if(state==='err') el.textContent='☁✗';
+  else el.textContent='☁…';
+}
+
+function scheduleSyncPush(){
+  if(!getSyncToken())return;
+  if(syncTimer)clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>doSyncPush(false),SYNC_DEBOUNCE_MS);
+}
+
+async function doSyncPush(showResult=true){
+  const token=getSyncToken();
+  if(!token||!currentUser)return;
+  const ud=getUserData();
+  const users=getUsers();
+  // パスワードは同期しない（ハッシュ代わりにユーザー名だけ）
+  const payload=JSON.stringify({ud,ts:Date.now(),email:currentUser,name:users[currentUser]?.name||''});
+  const gistId=getSyncGistId();
+  setSyncIndicator('syncing');
+  try{
+    let newId;
+    if(gistId){
+      const r=await fetch('https://api.github.com/gists/'+gistId,{
+        method:'PATCH',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({files:{'trpgcal_data.json':{content:payload}}})
+      });
+      if(r.status===404){setSyncGistId('');return doSyncPush(showResult);}
+      if(!r.ok)throw new Error((await r.json()).message||r.status);
+      newId=gistId;
+    } else {
+      const r=await fetch('https://api.github.com/gists',{
+        method:'POST',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({public:false,description:'trpgcal:'+currentUser,files:{'trpgcal_data.json':{content:payload}}})
+      });
+      if(!r.ok)throw new Error((await r.json()).message||r.status);
+      newId=(await r.json()).id;
+      setSyncGistId(newId);
+    }
+    setSyncIndicator('ok');
+    if(showResult)alert('同期しました');
+  }catch(e){
+    setSyncIndicator('err');
+    if(showResult)alert('同期エラー: '+e.message);
+    console.error(e);
+  }
+}
+
+async function doSyncPull(){
+  const token=getSyncToken();
+  if(!token||!currentUser)return false;
+  // GistリストからtrpgcalのGistを探す（description一致）
+  setSyncIndicator('syncing');
+  try{
+    const r=await fetch('https://api.github.com/gists?per_page=100',{
+      headers:{'Authorization':'token '+token}
+    });
+    if(!r.ok)throw new Error((await r.json()).message||r.status);
+    const gists=await r.json();
+    const found=gists.find(g=>g.description==='trpgcal:'+currentUser&&g.files['trpgcal_data.json']);
+    if(!found){setSyncIndicator('none');return false;}
+    setSyncGistId(found.id);
+    // Gistの内容を取得
+    const r2=await fetch('https://api.github.com/gists/'+found.id,{
+      headers:{'Authorization':'token '+token}
+    });
+    if(!r2.ok)throw new Error((await r2.json()).message||r2.status);
+    const data=await r2.json();
+    const content=data.files['trpgcal_data.json']?.content;
+    if(!content)return false;
+    const parsed=JSON.parse(content);
+    // ローカルデータより新しければ上書き
+    const localTs=parseInt(localStorage.getItem('cal_last_updated_ts_'+currentUser)||'0');
+    if(parsed.ts&&parsed.ts>localTs){
+      localStorage.setItem('cal_ud_'+currentUser,JSON.stringify(parsed.ud));
+      localStorage.setItem('cal_last_updated_ts_'+currentUser,String(parsed.ts));
+    }
+    setSyncIndicator('ok');
+    return true;
+  }catch(e){
+    setSyncIndicator('err');
+    console.error('sync pull error',e);
+    return false;
+  }
+}
+
+function showSyncModal(){
+  const token=getSyncToken();
+  let modal=document.createElement('div');
+  modal.className='sync-modal-overlay';
+  modal.innerHTML=`<div class="sync-modal-card">
+    <h3>☁ 端末間同期（GitHub Gist）</h3>
+    <p>GitHub Personal Access Token（Classicタイプ、<b>gist</b>スコープ）を設定すると、複数端末で同じデータを使えます。</p>
+    <label>GitHub Token</label>
+    <input type="password" id="syncTokenInput" value="${token}" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+    <div id="syncStatus" class="sync-status"></div>
+    <div class="sync-modal-btns">
+      <button class="sync-btn-cancel" onclick="this.closest('.sync-modal-overlay').remove()">閉じる</button>
+      <button class="sync-btn-ok" onclick="applySyncToken()">保存して今すぐ同期</button>
+    </div>
+    ${token?`<div style="margin-top:10px;display:flex;gap:8px">
+      <button onclick="doSyncPull().then(ok=>{if(ok){buildCal();document.getElementById('syncStatus').textContent='データを取り込みました';document.getElementById('syncStatus').className='sync-status ok'}})" style="flex:1;padding:7px;border:none;border-radius:6px;font-size:11px;cursor:pointer;background:#f0f0f0;color:#333">↓ 最新データを取得</button>
+      <button onclick="doSyncPush(true)" style="flex:1;padding:7px;border:none;border-radius:6px;font-size:11px;cursor:pointer;background:#f0f0f0;color:#333">↑ 今すぐ送信</button>
+    </div>`:''}
+    ${token?`<button onclick="setSyncToken('');setSyncGistId('');setSyncIndicator('none');this.closest('.sync-modal-overlay').remove();alert('同期設定を解除しました')" style="margin-top:8px;width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:11px;cursor:pointer;background:#fff;color:#999">同期を解除</button>`:''}
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  setTimeout(()=>document.getElementById('syncTokenInput').focus(),50);
+}
+
+async function applySyncToken(){
+  const t=document.getElementById('syncTokenInput').value.trim();
+  const st=document.getElementById('syncStatus');
+  if(!t){st.textContent='Tokenを入力してください';st.className='sync-status err';return;}
+  setSyncToken(t);
+  setSyncIndicator('syncing');
+  st.textContent='接続確認中…';st.className='sync-status ok';
+  // Token検証：gistリストを1件取得してみる
+  try{
+    const r=await fetch('https://api.github.com/gists?per_page=1',{headers:{'Authorization':'token '+t}});
+    if(!r.ok)throw new Error((await r.json()).message||r.status);
+    // pull → push の順で同期
+    await doSyncPull();
+    buildCal();
+    await doSyncPush(false);
+    st.textContent='✓ 同期しました';st.className='sync-status ok';
+    setSyncIndicator('ok');
+  }catch(e){
+    setSyncToken('');setSyncIndicator('none');
+    st.textContent='エラー: '+e.message;st.className='sync-status err';
+  }
+}
+
+// ===== 従来の認証 =====
 function touchUpdated(){
   const now=new Date();
   const s=`最終更新: ${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const el=document.getElementById('headerUpdated');
   if(el)el.textContent=s;
+  const ts=now.getTime();
   localStorage.setItem('cal_last_updated',now.toISOString());
+  localStorage.setItem('cal_last_updated_ts_'+currentUser,String(ts));
 }
 
 function showReg(){document.getElementById('loginForm').style.display='none';document.getElementById('regForm').style.display='block'}
@@ -639,20 +851,29 @@ function doReg(){
   const n=document.getElementById('regName').value.trim();
   const e=document.getElementById('regEmail').value.trim();
   const p=document.getElementById('regPass').value;
+  const t=document.getElementById('regToken').value.trim();
   const err=document.getElementById('regErr');
   if(!n||!e||p.length<6){err.textContent='すべての項目を正しく入力してください';err.style.display='block';return}
   const u=getUsers();
   if(u[e]){err.textContent='このメールアドレスはすでに登録済みです';err.style.display='block';return}
-  u[e]={name:n,pass:p};saveUsers(u);currentUser=e;loginOk(n);
+  u[e]={name:n,pass:p};saveUsers(u);currentUser=e;
+  if(t)setSyncToken(t);
+  loginOk(n);
 }
 function doLogin(){
   const e=document.getElementById('loginEmail').value.trim();
   const p=document.getElementById('loginPass').value;
+  const t=document.getElementById('loginToken').value.trim();
   const u=getUsers();
-  if(u[e]&&u[e].pass===p){currentUser=e;loginOk(u[e].name);}
-  else{document.getElementById('loginErr').style.display='block'}
+  if(u[e]&&u[e].pass===p){
+    currentUser=e;
+    if(t)setSyncToken(t);
+    loginOk(u[e].name);
+  } else {
+    document.getElementById('loginErr').style.display='block';
+  }
 }
-function loginOk(name){
+async function loginOk(name){
   if(currentUser)localStorage.setItem('cal_session',JSON.stringify({email:currentUser,name:name}));
   document.getElementById('avatarLabel').textContent=name.charAt(0);
   document.getElementById('loginErr').style.display='none';
@@ -661,6 +882,12 @@ function loginOk(name){
   const saved=localStorage.getItem('cal_last_updated');
   if(saved){const d=new Date(saved);document.getElementById('headerUpdated').textContent=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
   currentYear=new Date().getFullYear();updateYearLabel();
+  // Gist同期が設定されていればpullしてからbuildCal
+  if(getSyncToken()){
+    setSyncIndicator('syncing');
+    await doSyncPull();
+    setSyncIndicator('ok');
+  }
   buildCal();
   setTimeout(scrollToToday,100);
 }
@@ -669,7 +896,9 @@ function doLogout(){
   currentUser=null;
   document.getElementById('calScreen').classList.remove('active');
   document.getElementById('loginScreen').classList.add('active');
-  document.getElementById('loginEmail').value='';document.getElementById('loginPass').value='';
+  document.getElementById('loginEmail').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginToken').value='';
   showLogin();
 }
 
