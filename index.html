@@ -321,9 +321,9 @@
         <div class="avatar" id="avatarLabel" onclick="toggleAvatarMenu(event)" style="cursor:pointer">？</div>
       </div>
     </div>
-    <span class="sync-indicator" id="syncIndicator" onclick="showSyncModal()" title="同期設定" style="display:none;position:absolute;top:4px;right:40px">☁</span>
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
-    <div id="avatarMenu" style="display:none;position:absolute;top:70px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:120px;overflow:hidden">
+    <div id="avatarMenu" style="display:none;position:absolute;top:70px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:140px;overflow:hidden">
+      <div id="syncStatus" style="display:none;padding:6px 16px;font-size:10px;color:#888;border-bottom:1px solid #eee;display:none;align-items:center;gap:5px"></div>
       <div onclick="showSyncModal();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">☁ 同期設定</div>
       <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
@@ -807,13 +807,13 @@ function syncKeyForUser(email){return btoa(email).replace(/[^a-zA-Z0-9]/g,'').sl
 
 function setSyncIndicator(state){
   // state: 'ok'|'err'|'syncing'|'none'
-  const el=document.getElementById('syncIndicator');
+  const el=document.getElementById('syncStatus');
   if(!el)return;
   if(state==='none'){el.style.display='none';return;}
-  el.style.display='';
-  if(state==='ok') el.textContent='☁✓';
-  else if(state==='err') el.textContent='☁✗';
-  else el.textContent='☁…';
+  el.style.display='flex';
+  if(state==='ok'){el.textContent='☁ 同期済み';el.style.color='#1D9E75';}
+  else if(state==='err'){el.textContent='☁ 同期エラー';el.style.color='#e24b4a';}
+  else{el.textContent='☁ 同期中…';el.style.color='#888';}
 }
 
 function scheduleSyncPush(){
