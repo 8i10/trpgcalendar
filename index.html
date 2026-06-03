@@ -927,6 +927,15 @@ async function doSyncPull(){
       localStorage.setItem('cal_ud_'+currentUser,JSON.stringify(parsed.ud));
       localStorage.setItem('cal_last_updated_ts_'+currentUser,String(parsed.ts));
     }
+    // 同期データのタイムスタンプから最終更新日を表示（別端末でも反映）
+    if(parsed.ts){
+      const d=new Date(parsed.ts);
+      const s=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const el=document.getElementById('headerUpdated');
+      if(el)el.textContent=s;
+      localStorage.setItem('cal_last_updated:'+currentUser,d.toISOString());
+      localStorage.setItem('cal_last_updated_ts_'+currentUser,String(parsed.ts));
+    }
     setSyncIndicator('ok');
     return true;
   }catch(e){
@@ -991,6 +1000,7 @@ function touchUpdated(){
   const el=document.getElementById('headerUpdated');
   if(el)el.textContent=s;
   const ts=now.getTime();
+  localStorage.setItem('cal_last_updated:'+currentUser,now.toISOString());
   localStorage.setItem('cal_last_updated',now.toISOString());
   localStorage.setItem('cal_last_updated_ts_'+currentUser,String(ts));
 }
@@ -1035,8 +1045,9 @@ async function loginOk(name){
   document.getElementById('loginErr').style.display='none';
   document.getElementById('loginScreen').classList.remove('active');
   document.getElementById('calScreen').classList.add('active');
-  const saved=localStorage.getItem('cal_last_updated');
-  if(saved){const d=new Date(saved);document.getElementById('headerUpdated').textContent=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+  // ユーザーごとのキーで最終更新日を復元（なければ共通キーにフォールバック）
+  const savedTs=localStorage.getItem('cal_last_updated:'+currentUser)||localStorage.getItem('cal_last_updated');
+  if(savedTs){const d=new Date(savedTs);document.getElementById('headerUpdated').textContent=`最終更新: ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
   currentYear=new Date().getFullYear();updateYearLabel();
   // Gist同期が設定されていればpullしてからbuildCal
   if(getSyncToken()){
