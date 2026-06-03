@@ -1874,6 +1874,12 @@ function showTokenModal(onSubmit){
 }
 
 async function doPublish(token){
+  // 同期設定がある場合、最新データをpullしてからpublish（スマホでローカルが空でも上書きしない）
+  const syncToken=getSyncToken();
+  if(syncToken){
+    try{setSyncIndicator('syncing');await doSyncPull();setSyncIndicator('ok');}
+    catch(e){}
+  }
   const ud=getUserData();
   const payload=JSON.stringify({ud,ts:Date.now()});
   const gistIdKey='cal_gist_id_'+btoa(currentUser).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
