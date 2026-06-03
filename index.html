@@ -1882,8 +1882,8 @@ async function doPublish(token){
   }
   const ud=getUserData();
   const payload=JSON.stringify({ud,ts:Date.now()});
-  const gistIdKey='cal_gist_id_'+btoa(currentUser).replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
-  const existingId=localStorage.getItem(gistIdKey);
+  // GistIDはユーザーデータ内に保存（PC/スマホで共有できるよう）
+  const existingId=ud['_view_gist_id']||null;
   try{
     let gistId;
     if(existingId){
@@ -1892,7 +1892,11 @@ async function doPublish(token){
         headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
         body:JSON.stringify({files:{'calendar.json':{content:payload}}})
       });
-      if(r.status===404){localStorage.removeItem(gistIdKey);return doPublish(token);}
+      if(r.status===404){
+        // GistIDが無効になったので削除して再作成
+        const ud2=getUserData();delete ud2['_view_gist_id'];saveUserData(ud2);
+        return doPublish(token);
+      }
       if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
       gistId=existingId;
     } else {
@@ -1904,7 +1908,10 @@ async function doPublish(token){
       if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
       const data=await r.json();
       gistId=data.id;
-      localStorage.setItem(gistIdKey,gistId);
+      // GistIDをユーザーデータに保存してPCとスマホで共有
+      const ud2=getUserData();ud2['_view_gist_id']=gistId;saveUserData(ud2);
+      // 同期設定があれば即pushして他端末にも反映
+      if(syncToken){try{await doSyncPush(false);}catch(e){}}
     }
     const url=location.origin+location.pathname+'?view='+gistId;
     await navigator.clipboard.writeText(url).catch(()=>{});
