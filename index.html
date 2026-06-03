@@ -858,6 +858,8 @@ async function doSyncPush(showResult=true){
   if(!token||!currentUser)return;
   const ud=getUserData();
   const users=getUsers();
+  // 閲覧GistIDも同期対象に含める
+  const viewGistId=localStorage.getItem('cal_view_gist:'+currentUser)||'';
   // パスワードは同期しない（ハッシュ代わりにユーザー名だけ）
   const payload=JSON.stringify({ud,ts:Date.now(),email:currentUser,name:users[currentUser]?.name||''});
   const gistId=getSyncGistId();
@@ -917,6 +919,10 @@ async function doSyncPull(){
     const parsed=JSON.parse(content);
     // ローカルデータより新しければ上書き
     const localTs=parseInt(localStorage.getItem('cal_last_updated_ts_'+currentUser)||'0');
+    // viewGistIdはタイムスタンプ問わず常に取り込む（端末間でURLを統一）
+    if(parsed.viewGistId&&!localStorage.getItem('cal_view_gist:'+currentUser)){
+      localStorage.setItem('cal_view_gist:'+currentUser,parsed.viewGistId);
+    }
     if(parsed.ts&&parsed.ts>localTs){
       localStorage.setItem('cal_ud_'+currentUser,JSON.stringify(parsed.ud));
       localStorage.setItem('cal_last_updated_ts_'+currentUser,String(parsed.ts));
@@ -1882,8 +1888,8 @@ async function doPublish(token){
   }
   const ud=getUserData();
   const payload=JSON.stringify({ud,ts:Date.now()});
-  // GistIDはユーザーデータ内に保存（PC/スマホで共有できるよう）
-  const existingId=ud['_view_gist_id']||null;
+  // GistIDはlocalStorage + 同期で端末間共有
+  const existingId=localStorage.getItem('cal_view_gist:'+currentUser)||ud['_view_gist_id']||null;
   try{
     let gistId;
     if(existingId){
@@ -1893,8 +1899,7 @@ async function doPublish(token){
         body:JSON.stringify({files:{'calendar.json':{content:payload}}})
       });
       if(r.status===404){
-        // GistIDが無効になったので削除して再作成
-        const ud2=getUserData();delete ud2['_view_gist_id'];saveUserData(ud2);
+        localStorage.removeItem('cal_view_gist:'+currentUser);
         return doPublish(token);
       }
       if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
@@ -1908,8 +1913,8 @@ async function doPublish(token){
       if(!r.ok){const e=await r.json();throw new Error(e.message||r.status);}
       const data=await r.json();
       gistId=data.id;
-      // GistIDをユーザーデータに保存してPCとスマホで共有
-      const ud2=getUserData();ud2['_view_gist_id']=gistId;saveUserData(ud2);
+      // GistIDをlocalStorageに保存
+      localStorage.setItem('cal_view_gist:'+currentUser,gistId);
       // 同期設定があれば即pushして他端末にも反映
       if(syncToken){try{await doSyncPush(false);}catch(e){}}
     }
