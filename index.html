@@ -1599,11 +1599,11 @@ function buildTaskPage(){
         <span class="task-date">${date}</span>
       </div>
       <div class="task-checks">
-        <span class="tri-btn" data-state="${t.heya||0}" onclick="cycleTask('${titleSafe}','heya',this)">${triLabel(t.heya||0)} 部屋</span>
-        <span class="tri-btn" data-state="${t.cs||0}" onclick="cycleTask('${titleSafe}','cs',this)">${triLabel(t.cs||0)} CS</span>
-        <span class="tri-btn" data-state="${t.tachie||0}" onclick="cycleTask('${titleSafe}','tachie',this)">${triLabel(t.tachie||0)} 立ち絵</span>
+        <span class="tri-btn" data-state="${t.heya||0}" data-title="${titleSafe}" data-field="heya" onclick="cycleTask(this)">${triLabel(t.heya||0)} 部屋</span>
+        <span class="tri-btn" data-state="${t.cs||0}" data-title="${titleSafe}" data-field="cs" onclick="cycleTask(this)">${triLabel(t.cs||0)} CS</span>
+        <span class="tri-btn" data-state="${t.tachie||0}" data-title="${titleSafe}" data-field="tachie" onclick="cycleTask(this)">${triLabel(t.tachie||0)} 立ち絵</span>
       </div>
-      <textarea class="task-note" placeholder="備考…" oninput="saveTask('${titleSafe}','note',this.value);autoResizeTA(this)">${noteSafe}</textarea>
+      <textarea class="task-note" placeholder="備考…" data-title="${titleSafe}" oninput="saveTask(this.dataset.title,'note',this.value);autoResizeTA(this)">${noteSafe}</textarea>
     </div>`;
   });
   body.innerHTML=html;
@@ -1617,12 +1617,13 @@ function triLabel(s){
   if(s===2)return '–';
   return '○';
 }
-function cycleTask(title,field,el){
+function cycleTask(el){
+  const title=el.dataset.title;
+  const field=el.dataset.field;
   const ud=getUserData();
   if(!ud['tasks'])ud['tasks']={};
   if(!ud['tasks'][title])ud['tasks'][title]={heya:0,cs:0,tachie:0,note:'',date:''};
   const cur=ud['tasks'][title][field]||0;
-  // true/falseの古いデータも0扱い
   const curNum=(cur===true)?1:(cur===false)?0:cur;
   const next=(curNum+1)%3;
   ud['tasks'][title][field]=next;
