@@ -289,6 +289,13 @@
 
 /* KP/PL role select */
 .role-sel{border:none;background:transparent;padding:0;outline:none;cursor:pointer;font-size:9px}
+
+/* 3段階チェック */
+.tri-btn{display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid #e0e0e0;background:#fafafa;user-select:none;transition:background 0.1s,border-color 0.1s;white-space:nowrap}
+.tri-btn:hover{border-color:#bbb}
+.tri-btn[data-state="1"]{background:#E1F5EE;border-color:#1D9E75;color:#0F6E56;font-weight:600}
+.tri-btn[data-state="2"]{background:#FDEAEA;border-color:#E24B4A;color:#c0392b;font-weight:600}
+.tri-btn[data-state="0"]{background:#fafafa;border-color:#e0e0e0;color:#aaa}
 </style>
 
 <div class="app" id="app">
@@ -1546,7 +1553,7 @@ function collectScenarios(){
       if(!title)return;
       if(seen.has(title))return;
       seen.add(title);
-      result.push({title,date:dateStr,cat:ev.cat||''});
+      result.push({title,date:dateStr,cat:ev.cat||'',role:ev.role||''});
     });
   });
   return result;
@@ -1573,7 +1580,7 @@ function buildTaskPage(){
   }
 
   let html='<div style="font-size:10px;color:#aaa;margin-bottom:8px;padding:0 2px">カレンダーのシナリオ名から自動生成（同一シナリオは初日のみ・過去日は自動除去）</div>';
-  scenarios.forEach(({title,date,cat})=>{
+  scenarios.forEach(({title,date,cat,role})=>{
     const key=title; // タスクキーはシナリオ名
     const t=tasks[key]||{heya:false,cs:false,tachie:false,note:'',date:date};
     // dateを最新に更新
@@ -1582,16 +1589,19 @@ function buildTaskPage(){
     const titleSafe=title.replace(/</g,'&lt;').replace(/"/g,'&quot;');
     const noteSafe=(t.note||'').replace(/</g,'&lt;');
     const catBadge=cat?`<span style="font-size:9px;padding:1px 4px;border-radius:4px;font-weight:700;color:#fff;background:${cat==='vc'?'#1D9E75':cat==='tx'?'#6D7497':cat==='vt'?'#E24B4A':'#378ADD'};margin-left:4px">${cat.toUpperCase()}</span>`:'';
+    const roleIcon=role==='kp'?`<img src="${KP_URI}" style="width:16px;height:16px;object-fit:contain;border-radius:2px;flex-shrink:0;margin-right:3px">`
+                  :role==='pl'?`<img src="${PL_URI}" style="width:16px;height:16px;object-fit:contain;border-radius:2px;flex-shrink:0;margin-right:3px">`
+                  :'';
 
     html+=`<div class="task-card">
       <div class="task-card-header">
-        <span class="task-scenario" title="${titleSafe}">${titleSafe}</span>${catBadge}
+        ${roleIcon}<span class="task-scenario" title="${titleSafe}">${titleSafe}</span>${catBadge}
         <span class="task-date">${date}</span>
       </div>
       <div class="task-checks">
-        <label class="task-check-item"><input type="checkbox" ${t.heya?'checked':''} onchange="saveTask('${titleSafe}','heya',this.checked)"> 部屋</label>
-        <label class="task-check-item"><input type="checkbox" ${t.cs?'checked':''} onchange="saveTask('${titleSafe}','cs',this.checked)"> CS</label>
-        <label class="task-check-item"><input type="checkbox" ${t.tachie?'checked':''} onchange="saveTask('${titleSafe}','tachie',this.checked)"> 立ち絵</label>
+        <span class="tri-btn" data-state="${t.heya||0}" onclick="cycleTask('${titleSafe}','heya',this)">${triLabel(t.heya||0)} 部屋</span>
+        <span class="tri-btn" data-state="${t.cs||0}" onclick="cycleTask('${titleSafe}','cs',this)">${triLabel(t.cs||0)} CS</span>
+        <span class="tri-btn" data-state="${t.tachie||0}" onclick="cycleTask('${titleSafe}','tachie',this)">${triLabel(t.tachie||0)} 立ち絵</span>
       </div>
       <textarea class="task-note" placeholder="備考…" oninput="saveTask('${titleSafe}','note',this.value);autoResizeTA(this)">${noteSafe}</textarea>
     </div>`;
@@ -1602,10 +1612,28 @@ function buildTaskPage(){
   });
 }
 
+function triLabel(s){
+  if(s===1||s===true)return '✓';
+  if(s===2)return '–';
+  return '○';
+}
+function cycleTask(title,field,el){
+  const ud=getUserData();
+  if(!ud['tasks'])ud['tasks']={};
+  if(!ud['tasks'][title])ud['tasks'][title]={heya:0,cs:0,tachie:0,note:'',date:''};
+  const cur=ud['tasks'][title][field]||0;
+  // true/falseの古いデータも0扱い
+  const curNum=(cur===true)?1:(cur===false)?0:cur;
+  const next=(curNum+1)%3;
+  ud['tasks'][title][field]=next;
+  saveUserData(ud);touchUpdated();
+  el.dataset.state=next;
+  el.innerHTML=triLabel(next)+' '+el.innerHTML.split(' ').slice(1).join(' ');
+}
 function saveTask(title,field,val){
   const ud=getUserData();
   if(!ud['tasks'])ud['tasks']={};
-  if(!ud['tasks'][title])ud['tasks'][title]={heya:false,cs:false,tachie:false,note:'',date:''};
+  if(!ud['tasks'][title])ud['tasks'][title]={heya:0,cs:0,tachie:0,note:'',date:''};
   ud['tasks'][title][field]=val;
   saveUserData(ud);touchUpdated();
 }
