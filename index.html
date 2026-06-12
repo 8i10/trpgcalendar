@@ -66,14 +66,15 @@
 .day-num{width:42px;min-width:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3px 0;gap:0;background:#f5f5f5}
 .day-row.sun .day-num,.day-row.holiday .day-num{background:#ffeaea}
 .day-row.sat .day-num{background:#eaf0ff}
-.day-row.today .day-num{background:#d4f0e8}
+.day-row.today .day-num{background:#f0f0f0}
+.day-row.today .events-col{background:#d4f0e8}
 .dnum{font-size:12px;font-weight:700;line-height:1.1;color:#333}
 .dwk{font-size:9px;line-height:1.2;color:#777}
 .day-row.sun .dnum,.day-row.holiday .dnum{color:#c0392b}
 .day-row.sun .dwk,.day-row.holiday .dwk{color:#c0392b}
 .day-row.sat .dnum{color:#2563a8}
 .day-row.sat .dwk{color:#2563a8}
-.day-row.today .dnum{color:#0F6E56}
+.day-row.today .dnum{color:#333}
 /* green left border only */
 .day-num::after{content:'';display:block;position:absolute;left:42px;top:0;bottom:0;width:2px}
 .day-row{position:relative}
