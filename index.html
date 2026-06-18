@@ -2084,7 +2084,8 @@ function buildCalView(ud){
     const hiruEvs=[];const yoruEvs=[];
     userEvs.forEach(ev=>{
       if(!ev.time&&!ev.title&&!ev.cat)return;
-      if(isNightTime(ev.time))yoruEvs.push(ev);
+      const isYoru=ev.time?isNightTime(ev.time):(ev.slot==='yoru');
+      if(isYoru)yoruEvs.push(ev);
       else hiruEvs.push(ev);
     });
 
