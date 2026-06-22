@@ -2158,6 +2158,10 @@ function showShareModal(url){
       <button onclick="document.getElementById('shareModal').style.display='none'" style="margin-top:6px;width:100%;padding:7px;background:#f0f0f0;color:#555;border:none;border-radius:6px;font-size:12px;cursor:pointer">閉じる</button>
     </div>`;
     document.body.appendChild(modal);
+    // 背景クリックで閉じる
+    modal.addEventListener('click',function(e){
+      if(e.target===modal)modal.style.display='none';
+    });
   }
   modal.style.display='flex';
   document.getElementById('shareUrl').value=url;
