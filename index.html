@@ -53,9 +53,9 @@
 [data-theme="dark"] .cat-vc{background:#1d4d3e;color:#7fe3c0}
 [data-theme="dark"] .cat-tx{background:#1f3a52;color:#7db8ed}
 [data-theme="dark"] .cat-vt{background:#4a3a1a;color:#e8c078}
-[data-theme="dark"] .dwk{color:#9a9aa0}
-[data-theme="dark"] .ev-time{color:#b0b0b6}
-[data-theme="dark"] .user-ev-time-sel{color:#b0b0b6}
+[data-theme="dark"] .dwk{color:#c8c8ce}
+[data-theme="dark"] .ev-time{color:#d0d0d6}
+[data-theme="dark"] .user-ev-time-sel{color:#d0d0d6}
 [data-theme="dark"] #avatarMenu{background:#2a2a30!important}
 [data-theme="dark"] #avatarMenu>div{color:#e8e8ea!important}
 [data-theme="dark"] #avatarMenu>div[style*="border-top"]{border-top-color:#44444c!important}
@@ -139,7 +139,7 @@
 /* event row: icon | time | cat | title */
 .ev-row{display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px}
 
-.ev-time{font-size:10px;color:var(--color-text-secondary);width:32px;min-width:32px;white-space:nowrap}
+.ev-time{font-size:10px;color:#888;width:32px;min-width:32px;white-space:nowrap}
 .ev-cat{font-size:9px;padding:0 3px;border-radius:5px;font-weight:700;width:22px;min-width:22px;text-align:center;line-height:14px}
 .cat-vc{background:#E1F5EE;color:#0F6E56}
 .cat-tx{background:#E6F1FB;color:#185FA5}
@@ -152,7 +152,7 @@
 /* user event row (editable) — same layout */
 .user-ev-row{display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px;border-radius:3px}
 .user-ev-row:hover{background:rgba(0,0,0,0.03)}
-.user-ev-time-sel{font-size:10px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-secondary);width:52px;min-width:52px;padding:0;outline:none;cursor:pointer}
+.user-ev-time-sel{font-size:10px;border:none;border-bottom:1px solid transparent;background:transparent;color:#888;width:52px;min-width:52px;padding:0;outline:none;cursor:pointer}
 .user-ev-row:hover .user-ev-time-sel{border-bottom-color:var(--color-border-secondary)}
 .user-ev-time-sel:focus{border-bottom-color:#1D9E75;outline:none}
 .user-ev-cat-sel{font-size:9px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0 1px;outline:none;cursor:pointer;width:34px;min-width:34px;font-weight:700;text-align:center}
@@ -1240,6 +1240,15 @@ function buildCal(){
     const m=cur.getMonth();
     const y=cur.getFullYear();
     const monthKey=`${y}-${pad(m+1)}`;
+    // 過去日非表示モード：月末が今日より前の月はヘッダー・月メモごとスキップ
+    if(getHidePast()){
+      const monthEnd=ymd(new Date(y,m+1,0));
+      if(monthEnd<TODAY){
+        // この月を完全にスキップ（翌月1日へ）
+        cur=new Date(y,m+1,1);
+        continue;
+      }
+    }
     if(m!==prevMonth){
       if(prevMonthKey){
         const nv=(ud['note_'+prevMonthKey]||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1312,7 +1321,7 @@ function buildCal(){
       const delHtml=(!isVirt&&(ev.time||ev.title||ev.cat))?` <button class="user-ev-del" data-del="1">✕</button>`:'';
       return `<div class="user-ev-row" data-evkey="${key}" ${evuiAttr}${virtAttr} style="display:flex;align-items:center;min-height:20px">
         <span class="${iconCls}"></span>
-        <select class="user-ev-time-sel" data-field="time" style="color:var(--color-text-secondary);font-size:10px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0;outline:none;cursor:pointer;width:36px;min-width:36px;-webkit-appearance:none;appearance:none">${timeOpts}</select>
+        <select class="user-ev-time-sel" data-field="time" style="font-size:10px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0;outline:none;cursor:pointer;width:36px;min-width:36px;-webkit-appearance:none;appearance:none">${timeOpts}</select>
         <select class="${catCls}" data-field="cat" style="-webkit-appearance:none;appearance:none">${catOpts}</select>
         ${renderRoleSel(ev.role,key,ui)}
         <input class="user-ev-title" type="text" value="${titleSafe}" data-field="title" placeholder="" style="flex:1;font-family:'Zen Kaku Gothic New',sans-serif;font-size:11px;border:none;border-bottom:1px solid transparent;background:transparent;color:var(--color-text-primary);padding:0;outline:none;min-width:0;cursor:text">
@@ -2403,6 +2412,11 @@ function buildCalView(ud){
   while(cur<=endDate){
     const m=cur.getMonth();const y=cur.getFullYear();
     const monthKey=`${y}-${pad(m+1)}`;
+    // 過去日非表示モード：月末が今日より前の月はスキップ
+    if(getHidePast()){
+      const monthEnd=ymd(new Date(y,m+1,0));
+      if(monthEnd<TODAY){cur=new Date(y,m+1,1);continue;}
+    }
     if(m!==prevMonth){
       if(prevMonthKey){
         const nv=(ud['note_'+prevMonthKey]||'');
@@ -2446,7 +2460,7 @@ function buildCalView(ud){
                     :'<span style="width:14px;height:14px;flex-shrink:0"></span>';
       return `<div style="display:flex;align-items:center;gap:3px;padding:1px 0;min-height:19px">
         <span class="${iconCls}"></span>
-        <span style="font-size:10px;color:var(--color-text-secondary);width:32px;min-width:32px">${ev.time||''}</span>
+        <span class="ev-time" style="font-size:10px;width:32px;min-width:32px">${ev.time||''}</span>
         ${catLabel}
         ${roleHtml}
         <span style="flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(ev.title||'').replace(/</g,'&lt;')}</span>
@@ -2507,7 +2521,7 @@ function updateYearLabel(){
     <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.6">1つのシナリオを複数の日程に登録できます。</div>
     <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
       <select id="bulkRole" style="width:60px;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
-        <option value="">役職</option><option value="kp">KP</option><option value="pl">PL</option>
+        <option value="">KP/PL</option><option value="kp">KP</option><option value="pl">PL</option>
       </select>
       <input type="text" id="bulkTitle" placeholder="シナリオ名" style="flex:1;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
       <select id="bulkCat" style="width:56px;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
