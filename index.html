@@ -49,7 +49,19 @@
 [data-theme="dark"] .day-row.today .dnum{color:#e8e8ea}
 [data-theme="dark"] .avatarMenu,[data-theme="dark"] #avatarMenu{background:#2a2a30!important;color:#e8e8ea}
 [data-theme="dark"] .dnum{color:#e8e8ea}
-[data-theme="dark"] .ev-cat{filter:brightness(0.85)}
+[data-theme="dark"] .ev-cat{filter:none}
+[data-theme="dark"] .cat-vc{background:#1d4d3e;color:#7fe3c0}
+[data-theme="dark"] .cat-tx{background:#1f3a52;color:#7db8ed}
+[data-theme="dark"] .cat-vt{background:#4a3a1a;color:#e8c078}
+[data-theme="dark"] .dwk{color:#9a9aa0}
+[data-theme="dark"] .ev-time{color:#b0b0b6}
+[data-theme="dark"] .user-ev-time-sel{color:#b0b0b6}
+[data-theme="dark"] #avatarMenu{background:#2a2a30!important}
+[data-theme="dark"] #avatarMenu>div{color:#e8e8ea!important}
+[data-theme="dark"] #avatarMenu>div[style*="border-top"]{border-top-color:#44444c!important}
+[data-theme="dark"] #avatarMenu span{color:#e8e8ea!important}
+[data-theme="dark"] #avatarMenu>div[style*="e24b4a"]{color:#ff6b6a!important}
+[data-theme="dark"] #syncStatus{color:#9a9aa0!important}
 .app{max-width:680px;margin:0 auto;font-family:var(--font-sans);font-size:13px;color:var(--color-text-primary);background:var(--color-background-tertiary)}
 .screen{display:none}.screen.active{display:block}
 
@@ -906,6 +918,9 @@ function updatePastToggleLabel(){
 /* ===== 一括入力 ===== */
 function openBulkInput(){
   document.getElementById('bulkInputModal').style.display='flex';
+  document.getElementById('bulkRole').value='';
+  document.getElementById('bulkTitle').value='';
+  document.getElementById('bulkCat').value='';
   const c=document.getElementById('bulkRows');
   c.innerHTML='';
   addBulkRow();
@@ -915,33 +930,28 @@ function addBulkRow(){
   const c=document.getElementById('bulkRows');
   const div=document.createElement('div');
   div.className='bulk-row';
-  div.style.cssText='display:flex;gap:3px;margin-bottom:5px;align-items:center';
+  div.style.cssText='display:flex;gap:4px;margin-bottom:5px;align-items:center';
   const timeOpts=['',...HIRU_TIMES,...YORU_TIMES].map(t=>`<option value="${t}">${t||'時刻'}</option>`).join('');
   div.innerHTML=`
-    <input type="date" class="bulk-date" style="width:120px;font-size:11px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary)">
-    <select class="bulk-time" style="width:62px;font-size:11px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary)">${timeOpts}</select>
-    <select class="bulk-cat" style="width:48px;font-size:11px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary)">
-      <option value="">--</option><option value="vc">VC</option><option value="tx">TX</option><option value="vt">VT</option>
-    </select>
-    <select class="bulk-role" style="width:54px;font-size:11px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary)">
-      <option value="">役職</option><option value="kp">KP</option><option value="pl">PL</option>
-    </select>
-    <input type="text" class="bulk-title" placeholder="シナリオ名" style="flex:1;min-width:60px;font-size:11px;padding:3px;border:1px solid var(--color-border-secondary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary)">
-    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:13px;padding:0 2px">×</button>
+    <input type="date" class="bulk-date" style="flex:1;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
+    <select class="bulk-time" style="width:78px;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">${timeOpts}</select>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#e24b4a;cursor:pointer;font-size:15px;padding:0 4px">×</button>
   `;
   c.appendChild(div);
 }
 function applyBulkInput(){
+  const role=document.getElementById('bulkRole').value;
+  const title=document.getElementById('bulkTitle').value.trim();
+  const cat=document.getElementById('bulkCat').value;
+  const st=document.getElementById('bulkStatus');
+  if(!title){st.style.color='#e24b4a';st.textContent='シナリオ名を入力してください';return;}
   const rows=document.querySelectorAll('#bulkRows .bulk-row');
   const ud=getUserData();
   let count=0;
   rows.forEach(row=>{
     const date=row.querySelector('.bulk-date').value;
     const time=row.querySelector('.bulk-time').value;
-    const cat=row.querySelector('.bulk-cat').value;
-    const role=row.querySelector('.bulk-role').value;
-    const title=row.querySelector('.bulk-title').value.trim();
-    if(!date||!title)return;
+    if(!date)return;
     const key='ev_'+date;
     if(!ud[key])ud[key]=[];
     const slot=time?(isNightTime(time)?'yoru':'hiru'):'hiru';
@@ -952,7 +962,6 @@ function applyBulkInput(){
     }
   });
   saveUserData(ud);touchUpdated();buildCal();
-  const st=document.getElementById('bulkStatus');
   st.style.color='var(--color-accent)';
   st.textContent='✓ '+count+'件 追加しました';
   setTimeout(()=>{document.getElementById('bulkInputModal').style.display='none';},900);
@@ -1427,6 +1436,14 @@ document.addEventListener('DOMContentLoaded', function(){
       const newRole=t.value;
       const ud=getUserData();
       if(!isNaN(ui)&&ui>=0&&ud['ev_'+evkey]&&ud['ev_'+evkey][ui]){
+        const title=ud['ev_'+evkey][ui].title;
+        const roleLabel=newRole==='kp'?'KP':newRole==='pl'?'PL':'なし';
+        if(title&&countSameTitle(title)>1){
+          if(confirm(`「${title}」は複数登録されています。\nKP/PLを全て「${roleLabel}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
+            applyToSameTitle(title,'role',newRole);
+            return;
+          }
+        }
         ud['ev_'+evkey][ui].role=newRole;
         saveUserData(ud);touchUpdated();buildCal();
       }
@@ -1883,9 +1900,36 @@ function updateUserEv(key,ui,field,val){
 }
 function updateUserEvCat(key,ui,sel){
   const val=sel.value;
+  const ud=getUserData();
+  const ev=ud['ev_'+key]&&ud['ev_'+key][ui];
+  if(!ev){updateUserEv(key,ui,'cat',val);return;}
+  const title=ev.title;
+  // 同名シナリオの件数をカウント
+  if(title&&countSameTitle(title)>1){
+    if(confirm(`「${title}」は複数登録されています。\n形式を全て「${val?val.toUpperCase():'--'}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
+      applyToSameTitle(title,'cat',val);
+      return;
+    }
+  }
   updateUserEv(key,ui,'cat',val);
-  // update class
   sel.className=val?`user-ev-cat-sel ev-cat cat-${val}`:'user-ev-cat-sel ev-cat';
+}
+// 同名シナリオの件数を数える
+function countSameTitle(title){
+  const ud=getUserData();
+  let n=0;
+  Object.keys(ud).filter(k=>/^ev_\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+    (ud[k]||[]).forEach(ev=>{if(ev.title===title)n++;});
+  });
+  return n;
+}
+// 同名シナリオ全てにfield=valを適用
+function applyToSameTitle(title,field,val){
+  const ud=getUserData();
+  Object.keys(ud).filter(k=>/^ev_\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
+    (ud[k]||[]).forEach(ev=>{if(ev.title===title)ev[field]=val;});
+  });
+  saveUserData(ud);touchUpdated();buildCal();
 }
 function deleteUserEv(key,ui){
   const ud=getUserData();
@@ -2460,9 +2504,19 @@ function updateYearLabel(){
 <div id="bulkInputModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;align-items:center;justify-content:center">
   <div style="background:var(--color-background-primary);border-radius:12px;padding:18px 20px;max-width:420px;width:94%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
     <div style="font-size:14px;font-weight:600;margin-bottom:4px;color:var(--color-text-primary)">✏️ 一括入力</div>
-    <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.6">行を追加して「反映」を押すとカレンダーに追加されます。</div>
+    <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:12px;line-height:1.6">1つのシナリオを複数の日程に登録できます。</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <select id="bulkRole" style="width:60px;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
+        <option value="">役職</option><option value="kp">KP</option><option value="pl">PL</option>
+      </select>
+      <input type="text" id="bulkTitle" placeholder="シナリオ名" style="flex:1;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
+      <select id="bulkCat" style="width:56px;font-size:12px;padding:5px;border:1px solid var(--color-border-secondary);border-radius:5px;background:var(--color-background-primary);color:var(--color-text-primary)">
+        <option value="">形式</option><option value="vc">VC</option><option value="tx">TX</option><option value="vt">VT</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--color-text-secondary);margin:10px 0 4px">日程</div>
     <div id="bulkRows"></div>
-    <button onclick="addBulkRow()" style="margin-top:6px;width:100%;padding:6px;border:1px dashed var(--color-border-secondary);border-radius:6px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer">＋ 行を追加</button>
+    <button onclick="addBulkRow()" style="margin-top:6px;width:100%;padding:6px;border:1px dashed var(--color-border-secondary);border-radius:6px;background:transparent;color:var(--color-text-secondary);font-size:11px;cursor:pointer">＋ 日程を追加</button>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button onclick="document.getElementById('bulkInputModal').style.display='none'" style="flex:1;padding:8px;border:1px solid var(--color-border-secondary);border-radius:6px;background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer">キャンセル</button>
       <button onclick="applyBulkInput()" style="flex:2;padding:8px;border:none;border-radius:6px;background:var(--color-accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">反映</button>
