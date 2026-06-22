@@ -360,6 +360,8 @@
     <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="importFromXlsx(this)">
     <div id="avatarMenu" style="display:none;position:absolute;top:70px;right:6px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:999;min-width:140px;overflow:hidden">
       <div id="syncStatus" style="display:none;padding:6px 16px;font-size:10px;color:#888;border-bottom:1px solid #eee;display:none;align-items:center;gap:5px"></div>
+      <div onclick="openSheetImport();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">📥 スプシ取込</div>
+      <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="showSyncModal();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#333">☁ 同期設定</div>
       <div style="border-top:1px solid #eee;margin:0"></div>
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
@@ -1882,6 +1884,168 @@ function importSheetRows(ws){
   return importCount;
 }
 
+
+// ===== Googleスプレッドシート固定URL取込 =====
+const SHEET_BASE_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vTCTxjXw4VSp6fr4bmebz_vI8SYo0m6IyO43VahVQLmh-5Dd_1zZJzl7HAaewh0wDucf6qugI2n3Hcd';
+
+function openSheetImport(){
+  document.getElementById('sheetImportModal').style.display='flex';
+  document.getElementById('sheetImportStatus').textContent='';
+}
+
+// GIDキャッシュ：シート名→gid
+const SHEET_GID_CACHE={};
+
+async function fetchSheetGidList(){
+  // pubhtmlからシート一覧（gid）を取得
+  const url=SHEET_BASE_URL+'/pubhtml';
+  try{
+    const res=await fetch(url);
+    const text=await res.text();
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(text,'text/html');
+    const btns=doc.querySelectorAll('[id^="sheet-button-"]');
+    btns.forEach(btn=>{
+      const gid=btn.id.replace('sheet-button-','');
+      const name=btn.textContent.trim();
+      SHEET_GID_CACHE[name]=gid;
+    });
+  }catch(e){console.error('GID fetch failed',e);}
+}
+
+async function runSheetImport(sheetName){
+  const statusEl=document.getElementById('sheetImportStatus');
+  statusEl.textContent='取得中…';
+  try{
+    // gidリスト取得（未取得の場合）
+    if(Object.keys(SHEET_GID_CACHE).length===0)await fetchSheetGidList();
+
+    let sheetsToImport=[];
+    if(sheetName===null){
+      // 全シート
+      sheetsToImport=Object.entries(SHEET_GID_CACHE).filter(([n])=>n!=='日程未定');
+    }else{
+      const gid=SHEET_GID_CACHE[sheetName];
+      if(gid)sheetsToImport=[[sheetName,gid]];
+      else sheetsToImport=[[sheetName,null]];
+    }
+
+    let totalCount=0;
+    for(const [name,gid] of sheetsToImport){
+      let csvUrl=SHEET_BASE_URL+'/pub?output=csv';
+      if(gid)csvUrl+='&gid='+gid;
+      const res=await fetch(csvUrl);
+      if(!res.ok)throw new Error(name+': 取得失敗('+res.status+')');
+      const csv=await res.text();
+      const count=importFromCsv(csv);
+      totalCount+=count;
+    }
+
+    statusEl.style.color='#1D9E75';
+    statusEl.textContent='✓ '+totalCount+'件 取り込みました';
+    buildCal();touchUpdated();
+  }catch(err){
+    statusEl.style.color='#e24b4a';
+    statusEl.textContent='エラー: '+err.message;
+    console.error(err);
+  }
+}
+
+function importFromCsv(csv){
+  const ud=getUserData();
+  const rows=csv.split('\n').map(r=>{
+    // CSVパース（簡易: ダブルクォート対応）
+    const cols=[];let cur='';let inQ=false;
+    for(let i=0;i<r.length;i++){
+      const c=r[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+
+  let importCount=0;
+  let currentKey=null;
+
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i];
+    if(!row||row.length<2)continue;
+
+    // B列(index1)が日付シリアル or 日付文字列
+    const bVal=row[1];
+    if(bVal&&bVal.trim()){
+      const parsed=parseDateCell(bVal.trim());
+      if(parsed)currentKey=parsed;
+    }
+    if(!currentKey)continue;
+
+    // E列(index4)=時間, G列(index6)=形式, H列(index7)=タイトル
+    const eVal=(row[4]||'').trim();
+    const gVal=(row[6]||'').trim();
+    const hVal=(row[7]||'').trim();
+    if(!hVal)continue;
+
+    // 時間パース
+    let timeStr='';
+    if(/^\d{1,2}:\d{2}/.test(eVal)){
+      timeStr=eVal.substring(0,5).padStart(5,'0');
+    }else{
+      const num=parseFloat(eVal);
+      if(!isNaN(num)&&num>0&&num<1){
+        const mins=Math.round(num*1440);
+        timeStr=String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+      }
+    }
+
+    // slot判定（行の位置: 同じ日付の1行目=昼, 2行目=夜）
+    // B列が空でD列以降にアイコンがある行は「2行目（夜）」の判定は難しいため
+    // 時刻で判断: 時刻があれば isNightTime, なければ行番号パリティで判断
+    let slot='hiru';
+    if(timeStr){
+      slot=isNightTime(timeStr)?'yoru':'hiru';
+    }else{
+      // 同一日付の何行目かを数える
+      let rowsForKey=0;
+      for(let j=0;j<i;j++){
+        const pRow=rows[j];
+        if(!pRow)continue;
+        const pB=(pRow[1]||'').trim();
+        const pDate=parseDateCell(pB)||currentKey; // 同じキーならカウント
+        if(pDate===currentKey&&(pRow[7]||'').trim())rowsForKey++;
+      }
+      slot=rowsForKey%2===0?'hiru':'yoru';
+    }
+
+    const catStr=gVal.toLowerCase();
+    const validCat=['vc','tx','vt'].includes(catStr)?catStr:'';
+
+    if(!ud['ev_'+currentKey])ud['ev_'+currentKey]=[];
+    const dup=ud['ev_'+currentKey].some(ex=>ex.title===hVal&&ex.time===timeStr);
+    if(!dup){
+      ud['ev_'+currentKey].push({time:timeStr,cat:validCat,title:hVal,slot:slot});
+      importCount++;
+    }
+  }
+
+  saveUserData(ud);
+  return importCount;
+}
+
+function parseDateCell(val){
+  if(!val)return null;
+  // 数値シリアル
+  const num=Number(val);
+  if(!isNaN(num)&&num>40000&&num<80000){
+    return ymd(serialToDate(Math.round(num)));
+  }
+  // 日付文字列 YYYY/MM/DD or YYYY-MM-DD or M/D
+  const m1=val.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m1)return m1[1]+'-'+m1[2].padStart(2,'0')+'-'+m1[3].padStart(2,'0');
+  return null;
+}
+
 // ===== 共有・閲覧モード (GitHub Gist) =====
 const GIST_TOKEN_KEY='cal_gist_token';
 
@@ -2149,6 +2313,26 @@ function updateYearLabel(){
   document.getElementById('yearNavLabel').textContent=currentYear+'年';
 }
 </script>
+
+
+<!-- SHEET IMPORT MODAL -->
+<div id="sheetImportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:20px 22px;max-width:360px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="font-size:14px;font-weight:600;margin-bottom:10px">📥 スプレッドシート取込</div>
+    <div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.6">シートを選択して取り込みます。<br>同一日付・時刻・タイトルの重複はスキップします。</div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:11px;color:#888;display:block;margin-bottom:3px">シート選択</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="sheetBtns">
+        <button onclick="runSheetImport('2026年')" style="padding:5px 12px;border-radius:5px;border:1px solid #1D9E75;background:#E1F5EE;color:#0F6E56;font-size:11px;cursor:pointer">2026年</button>
+        <button onclick="runSheetImport('2027年')" style="padding:5px 12px;border-radius:5px;border:1px solid #1D9E75;background:#E1F5EE;color:#0F6E56;font-size:11px;cursor:pointer">2027年</button>
+        <button onclick="runSheetImport('日程未定')" style="padding:5px 12px;border-radius:5px;border:1px solid #aaa;background:#f5f5f5;color:#555;font-size:11px;cursor:pointer">日程未定</button>
+        <button onclick="runSheetImport(null)" style="padding:5px 12px;border-radius:5px;border:1px solid #555;background:#f0f0f0;color:#333;font-size:11px;cursor:pointer">全シート</button>
+      </div>
+    </div>
+    <div id="sheetImportStatus" style="font-size:11px;color:#888;min-height:18px;margin-top:6px"></div>
+    <button onclick="document.getElementById('sheetImportModal').style.display='none'" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:6px;background:#f0f0f0;color:#555;font-size:12px;cursor:pointer">閉じる</button>
+  </div>
+</div>
 
 <!-- MEMO PAGE MODAL -->
 <div id="memoPageModal" style="display:none;flex-direction:column;background:#f5f6fa;min-height:100%">
