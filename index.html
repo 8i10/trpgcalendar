@@ -1915,29 +1915,28 @@ async function fetchSheetGidList(){
 
 async function runSheetImport(sheetName){
   const statusEl=document.getElementById('sheetImportStatus');
+  statusEl.style.color='#888';
   statusEl.textContent='取得中…';
   try{
-    // gidリスト取得（未取得の場合）
     if(Object.keys(SHEET_GID_CACHE).length===0)await fetchSheetGidList();
 
     let sheetsToImport=[];
     if(sheetName===null){
-      // 全シート
       sheetsToImport=Object.entries(SHEET_GID_CACHE).filter(([n])=>n!=='日程未定');
+      if(sheetsToImport.length===0)sheetsToImport=[['(default)',null]];
     }else{
       const gid=SHEET_GID_CACHE[sheetName];
-      if(gid)sheetsToImport=[[sheetName,gid]];
-      else sheetsToImport=[[sheetName,null]];
+      sheetsToImport=[[sheetName,gid||null]];
     }
 
     let totalCount=0;
     for(const [name,gid] of sheetsToImport){
-      let csvUrl=SHEET_BASE_URL+'/pub?output=csv';
-      if(gid)csvUrl+='&gid='+gid;
-      const res=await fetch(csvUrl);
+      let htmlUrl=SHEET_BASE_URL+'/pubhtml/sheet';
+      if(gid)htmlUrl+='?gid='+gid;
+      const res=await fetch(htmlUrl);
       if(!res.ok)throw new Error(name+': 取得失敗('+res.status+')');
-      const csv=await res.text();
-      const count=importFromCsv(csv);
+      const htmlText=await res.text();
+      const count=importFromSheetHtml(htmlText);
       totalCount+=count;
     }
 
@@ -1951,99 +1950,76 @@ async function runSheetImport(sheetName){
   }
 }
 
-function importFromCsv(csv){
+// pubhtmlのテーブルを解析して取り込み
+// 列構成（行番号列を除く0始まり）:
+//  index2: 日付数字 or 月ヘッダー(YYYY/MM)
+//  index3: 曜日(日付行) or 時刻(続き行)
+//  index5: 形式(vc/tx/vt)
+//  index6: タイトル
+// 1日=2行（1行目=昼、2行目=夜）
+function importFromSheetHtml(htmlText){
   const ud=getUserData();
-  const rows=csv.split('\n').map(r=>{
-    // CSVパース（簡易: ダブルクォート対応）
-    const cols=[];let cur='';let inQ=false;
-    for(let i=0;i<r.length;i++){
-      const c=r[i];
-      if(c==='"'){inQ=!inQ;}
-      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
-      else cur+=c;
-    }
-    cols.push(cur.trim());
-    return cols;
-  });
-
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(htmlText,'text/html');
+  const trs=doc.querySelectorAll('tbody tr');
   let importCount=0;
-  let currentKey=null;
+  let curYear=null, curMonth=null, curDay=null, curKey=null;
+  let slotForDay=0; // 0=昼,1=夜
 
-  for(let i=0;i<rows.length;i++){
-    const row=rows[i];
-    if(!row||row.length<2)continue;
+  trs.forEach(tr=>{
+    const tds=Array.from(tr.querySelectorAll('th,td')).map(td=>(td.textContent||'').replace(/\u00a0/g,' ').trim());
+    // tds[0]=行番号。実データはtds[1]以降だが、実際の列はindex2=日付,3,5,6
+    const c2=tds[2]||'';
+    const c3=tds[3]||'';
+    const c5=tds[5]||'';
+    const c6=tds[6]||'';
 
-    // B列(index1)が日付シリアル or 日付文字列
-    const bVal=row[1];
-    if(bVal&&bVal.trim()){
-      const parsed=parseDateCell(bVal.trim());
-      if(parsed)currentKey=parsed;
-    }
-    if(!currentKey)continue;
+    // 月ヘッダー判定 YYYY/MM
+    const mh=c2.match(/^(\d{4})[\/\-](\d{1,2})$/);
+    if(mh){curYear=parseInt(mh[1]);curMonth=parseInt(mh[2]);return;}
 
-    // E列(index4)=時間, G列(index6)=形式, H列(index7)=タイトル
-    const eVal=(row[4]||'').trim();
-    const gVal=(row[6]||'').trim();
-    const hVal=(row[7]||'').trim();
-    if(!hVal)continue;
-
-    // 時間パース
-    let timeStr='';
-    if(/^\d{1,2}:\d{2}/.test(eVal)){
-      timeStr=eVal.substring(0,5).padStart(5,'0');
-    }else{
-      const num=parseFloat(eVal);
-      if(!isNaN(num)&&num>0&&num<1){
-        const mins=Math.round(num*1440);
-        timeStr=String(Math.floor(mins/60)).padStart(2,'0')+':'+String(mins%60).padStart(2,'0');
+    // 日付行判定（c2が数字）
+    const dayNum=parseInt(c2);
+    if(c2!==''&&!isNaN(dayNum)&&dayNum>=1&&dayNum<=31){
+      curDay=dayNum;
+      slotForDay=0;
+      if(curYear&&curMonth){
+        curKey=curYear+'-'+String(curMonth).padStart(2,'0')+'-'+String(curDay).padStart(2,'0');
       }
+      // 日付行自身に時刻・タイトルがある場合（昼）
+      addEvFromCols(ud,curKey,c3,c5,c6,'hiru')&&importCount++;
+      return;
     }
 
-    // slot判定（行の位置: 同じ日付の1行目=昼, 2行目=夜）
-    // B列が空でD列以降にアイコンがある行は「2行目（夜）」の判定は難しいため
-    // 時刻で判断: 時刻があれば isNightTime, なければ行番号パリティで判断
-    let slot='hiru';
-    if(timeStr){
-      slot=isNightTime(timeStr)?'yoru':'hiru';
-    }else{
-      // 同一日付の何行目かを数える
-      let rowsForKey=0;
-      for(let j=0;j<i;j++){
-        const pRow=rows[j];
-        if(!pRow)continue;
-        const pB=(pRow[1]||'').trim();
-        const pDate=parseDateCell(pB)||currentKey; // 同じキーならカウント
-        if(pDate===currentKey&&(pRow[7]||'').trim())rowsForKey++;
-      }
-      slot=rowsForKey%2===0?'hiru':'yoru';
+    // 続き行（c2空）→ 夜の予定
+    if(curKey){
+      const added=addEvFromCols(ud,curKey,c3,c5,c6,'yoru');
+      if(added)importCount++;
     }
-
-    const catStr=gVal.toLowerCase();
-    const validCat=['vc','tx','vt'].includes(catStr)?catStr:'';
-
-    if(!ud['ev_'+currentKey])ud['ev_'+currentKey]=[];
-    const dup=ud['ev_'+currentKey].some(ex=>ex.title===hVal&&ex.time===timeStr);
-    if(!dup){
-      ud['ev_'+currentKey].push({time:timeStr,cat:validCat,title:hVal,slot:slot});
-      importCount++;
-    }
-  }
+  });
 
   saveUserData(ud);
   return importCount;
 }
 
-function parseDateCell(val){
-  if(!val)return null;
-  // 数値シリアル
-  const num=Number(val);
-  if(!isNaN(num)&&num>40000&&num<80000){
-    return ymd(serialToDate(Math.round(num)));
-  }
-  // 日付文字列 YYYY/MM/DD or YYYY-MM-DD or M/D
-  const m1=val.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  if(m1)return m1[1]+'-'+m1[2].padStart(2,'0')+'-'+m1[3].padStart(2,'0');
-  return null;
+function addEvFromCols(ud,key,timeCol,catCol,titleCol,slot){
+  if(!key)return false;
+  const title=(titleCol||'').trim();
+  if(!title)return false;
+  // 時刻パース
+  let timeStr='';
+  const tm=(timeCol||'').match(/^(\d{1,2}):(\d{2})/);
+  if(tm)timeStr=tm[1].padStart(2,'0')+':'+tm[2];
+  // slotは時刻優先
+  let finalSlot=slot;
+  if(timeStr)finalSlot=isNightTime(timeStr)?'yoru':'hiru';
+  const catStr=(catCol||'').trim().toLowerCase();
+  const validCat=['vc','tx','vt'].includes(catStr)?catStr:'';
+  if(!ud['ev_'+key])ud['ev_'+key]=[];
+  const dup=ud['ev_'+key].some(ex=>ex.title===title&&ex.time===timeStr);
+  if(dup)return false;
+  ud['ev_'+key].push({time:timeStr,cat:validCat,title:title,slot:finalSlot});
+  return true;
 }
 
 // ===== 共有・閲覧モード (GitHub Gist) =====
