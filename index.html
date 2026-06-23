@@ -1548,6 +1548,9 @@ function setupScrollSpy(){
     const firstRect=all[0].getBoundingClientRect();
     const firstVisible=(firstRect.top<stickyBottom+4&&firstRect.bottom>62);
     stickyEl.style.height=firstVisible?'0':'';
+    stickyEl.style.padding=firstVisible?'0':'';
+    stickyEl.style.margin=firstVisible?'0':'';
+    stickyEl.style.minHeight=firstVisible?'0':'';
     stickyEl.style.overflow=firstVisible?'hidden':'';
     stickyEl.style.borderTop=firstVisible?'none':'';
     stickyEl.style.opacity=firstVisible?'0':'1';
