@@ -1447,11 +1447,14 @@ document.addEventListener('DOMContentLoaded', function(){
       const newRole=t.value;
       const ud=getUserData();
       if(!isNaN(ui)&&ui>=0&&ud['ev_'+evkey]&&ud['ev_'+evkey][ui]){
-        const title=ud['ev_'+evkey][ui].title;
+        const ev=ud['ev_'+evkey][ui];
+        const title=ev.title;
+        const slot=evSlot(ev);
         const roleLabel=newRole==='kp'?'KP':newRole==='pl'?'PL':'なし';
-        if(title&&countSameTitle(title)>1){
-          if(confirm(`「${title}」は複数登録されています。\nKP/PLを全て「${roleLabel}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
-            applyToSameTitle(title,'role',newRole);
+        if(title&&countSameTitle(title,slot)>1){
+          const slotLabel=slot==='yoru'?'夜':'昼';
+          if(confirm(`「${title}」（${slotLabel}）は複数登録されています。\nKP/PLを全て「${roleLabel}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
+            applyToSameTitle(title,slot,'role',newRole);
             return;
           }
         }
@@ -1913,16 +1916,19 @@ function updateUserEv(key,ui,field,val){
   }
   saveUserData(ud);touchUpdated();
 }
+function evSlot(ev){return ev.time?(isNightTime(ev.time)?'yoru':'hiru'):(ev.slot==='yoru'?'yoru':'hiru');}
 function updateUserEvCat(key,ui,sel){
   const val=sel.value;
   const ud=getUserData();
   const ev=ud['ev_'+key]&&ud['ev_'+key][ui];
   if(!ev){updateUserEv(key,ui,'cat',val);return;}
   const title=ev.title;
-  // 同名シナリオの件数をカウント
-  if(title&&countSameTitle(title)>1){
-    if(confirm(`「${title}」は複数登録されています。\n形式を全て「${val?val.toUpperCase():'--'}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
-      applyToSameTitle(title,'cat',val);
+  const slot=evSlot(ev);
+  // 同名シナリオ（同じ昼夜）の件数をカウント
+  if(title&&countSameTitle(title,slot)>1){
+    const slotLabel=slot==='yoru'?'夜':'昼';
+    if(confirm(`「${title}」（${slotLabel}）は複数登録されています。\n形式を全て「${val?val.toUpperCase():'--'}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
+      applyToSameTitle(title,slot,'cat',val);
       return;
     }
   }
@@ -1934,38 +1940,39 @@ function updateUserEvTime(key,ui,val){
   const ev=ud['ev_'+key]&&ud['ev_'+key][ui];
   if(!ev){updateUserEv(key,ui,'time',val);return;}
   const title=ev.title;
-  // 同名シナリオの件数をカウント
-  if(title&&countSameTitle(title)>1){
-    if(confirm(`「${title}」は複数登録されています。\n時間を全て「${val||'--:--'}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
-      applyTimeToSameTitle(title,val);
+  const slot=evSlot(ev); // 変更前のスロットで対象を絞る
+  // 同名シナリオ（同じ昼夜）の件数をカウント
+  if(title&&countSameTitle(title,slot)>1){
+    const slotLabel=slot==='yoru'?'夜':'昼';
+    if(confirm(`「${title}」（${slotLabel}）は複数登録されています。\n時間を全て「${val||'--:--'}」に変更しますか？\n\nOK：全て変更　／　キャンセル：この予定のみ`)){
+      applyTimeToSameTitle(title,slot,val);
       return;
     }
   }
   updateUserEv(key,ui,'time',val);
 }
-// 同名シナリオ全ての時刻を変更（slotも更新）
-function applyTimeToSameTitle(title,val){
+// 同名シナリオ（同じ昼夜）全ての時刻を変更
+function applyTimeToSameTitle(title,slot,val){
   const ud=getUserData();
-  const newSlot=(!val||!isNightTime(val))?'hiru':'yoru';
   Object.keys(ud).filter(k=>/^ev_\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
-    (ud[k]||[]).forEach(ev=>{if(ev.title===title){ev.time=val;ev.slot=newSlot;}});
+    (ud[k]||[]).forEach(ev=>{if(ev.title===title&&evSlot(ev)===slot){ev.time=val;}});
   });
   saveUserData(ud);touchUpdated();buildCal();
 }
-// 同名シナリオの件数を数える
-function countSameTitle(title){
+// 同名シナリオ（同じ昼夜）の件数を数える
+function countSameTitle(title,slot){
   const ud=getUserData();
   let n=0;
   Object.keys(ud).filter(k=>/^ev_\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
-    (ud[k]||[]).forEach(ev=>{if(ev.title===title)n++;});
+    (ud[k]||[]).forEach(ev=>{if(ev.title===title&&(!slot||evSlot(ev)===slot))n++;});
   });
   return n;
 }
-// 同名シナリオ全てにfield=valを適用
-function applyToSameTitle(title,field,val){
+// 同名シナリオ（同じ昼夜）全てにfield=valを適用
+function applyToSameTitle(title,slot,field,val){
   const ud=getUserData();
   Object.keys(ud).filter(k=>/^ev_\d{4}-\d{2}-\d{2}$/.test(k)).forEach(k=>{
-    (ud[k]||[]).forEach(ev=>{if(ev.title===title)ev[field]=val;});
+    (ud[k]||[]).forEach(ev=>{if(ev.title===title&&evSlot(ev)===slot)ev[field]=val;});
   });
   saveUserData(ud);touchUpdated();buildCal();
 }
