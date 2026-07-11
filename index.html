@@ -1008,7 +1008,27 @@ function setSyncIndicator(state){
 function scheduleSyncPush(){
   if(!getSyncToken())return;
   if(syncTimer)clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>doSyncPush(false),SYNC_DEBOUNCE_MS);
+  syncTimer=setTimeout(()=>{
+    doSyncPush(false);
+    // 閲覧用URLが発行済みなら自動で閲覧側も更新
+    const viewGist=localStorage.getItem('cal_view_gist:'+currentUser);
+    if(viewGist){autoPublishView();}
+  },SYNC_DEBOUNCE_MS);
+}
+// 閲覧用Gistを自動更新（アラートなし）
+async function autoPublishView(){
+  const token=getSyncToken();
+  const gistId=localStorage.getItem('cal_view_gist:'+currentUser);
+  if(!token||!gistId)return;
+  try{
+    const ud=getUserData();
+    const payload=JSON.stringify({ud,ts:Date.now()});
+    await fetch('https://api.github.com/gists/'+gistId,{
+      method:'PATCH',
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({files:{'calendar.json':{content:payload}}})
+    });
+  }catch(e){console.error('auto publish failed',e);}
 }
 
 async function doSyncPush(showResult=true){
@@ -2412,27 +2432,48 @@ async function initViewMode(){
   // sticky月ヘッダーのアイコン列を非表示
   const icons=cal.querySelector('.month-sticky-icons');
   if(icons)icons.style.display='none';
+  await loadViewData(true);
+  // 60秒ごとに自動更新
+  setInterval(()=>loadViewData(false),60000);
+  // タブがアクティブになったときも更新
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')loadViewData(false);
+  });
+}
+let _viewLastTs=0;
+async function loadViewData(isFirst){
   try{
-    const r=await fetch('https://api.github.com/gists/'+VIEW_PARAM);
+    const r=await fetch('https://api.github.com/gists/'+VIEW_PARAM+'?_='+Date.now());
     if(!r.ok){
-      document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
+      if(isFirst)document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
       return;
     }
     const gist=await r.json();
     const raw=gist.files['calendar.json']&&gist.files['calendar.json'].content;
     if(!raw){
-      document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
+      if(isFirst)document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">データが見つかりません</div>';
       return;
     }
     const data=JSON.parse(raw);
-    currentYear=new Date().getFullYear();
-    updateYearLabel();
+    // 更新がなければ再描画しない（スクロール位置維持）
+    if(!isFirst&&data.ts&&data.ts===_viewLastTs)return;
+    _viewLastTs=data.ts||0;
+    if(isFirst){
+      currentYear=new Date().getFullYear();
+      updateYearLabel();
+    }
+    // スクロール位置を保持して再描画
+    const scrollY=window.scrollY;
     buildCalView(data.ud);
-    setTimeout(scrollToToday,100);
+    if(isFirst){
+      setTimeout(scrollToToday,100);
+    }else{
+      window.scrollTo(0,scrollY);
+    }
     const ts=new Date(data.ts);
     document.getElementById('headerUpdated').textContent=`更新: ${ts.getFullYear()}/${pad(ts.getMonth()+1)}/${pad(ts.getDate())} ${pad(ts.getHours())}:${pad(ts.getMinutes())}`;
   }catch(e){
-    document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">読み込みエラー</div>';
+    if(isFirst)document.getElementById('calBody').innerHTML='<div style="padding:2rem;text-align:center;color:#999">読み込みエラー</div>';
   }
 }
 
