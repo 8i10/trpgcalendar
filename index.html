@@ -432,6 +432,16 @@ html{background:var(--color-background-tertiary)}
     <span class="month-sticky-label" id="stickyMonth">—</span>
     <button id="todayBtn" onclick="scrollToToday()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;margin-right:6px;white-space:nowrap;flex-shrink:0">今日</button>
   </div>
+  <div id="globalMemoWrap">
+    <div id="globalMemoHeader" onclick="toggleGlobalMemo()" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--color-background-secondary);cursor:pointer;border-bottom:1px solid var(--color-border-tertiary);user-select:none">
+      <span id="globalMemoArrow" style="font-size:10px;color:var(--color-text-secondary);transition:transform 0.15s">▶</span>
+      <span style="font-size:12px;font-weight:600;color:var(--color-text-primary)">📌 メモ</span>
+      <span id="globalMemoPreview" style="font-size:11px;color:var(--color-text-secondary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    </div>
+    <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary)">
+      <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
+    </div>
+  </div>
   <div id="calBody"></div>
   <div id="calPanel" style="display:none;flex:1;flex-direction:column;overflow:hidden"></div>
 </div>
@@ -886,6 +896,37 @@ RAW.forEach(r=>{
 
 let currentUser=null;
 const TODAY=ymd(new Date());
+
+/* ===== 全体メモ（アコーディオン） ===== */
+function toggleGlobalMemo(){
+  const body=document.getElementById('globalMemoBody');
+  const arrow=document.getElementById('globalMemoArrow');
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  arrow.style.transform=open?'rotate(90deg)':'';
+  if(open)localStorage.setItem('cal_memo_open','1');
+  else localStorage.removeItem('cal_memo_open');
+}
+function loadGlobalMemo(ud){
+  const ta=document.getElementById('globalMemoText');
+  const preview=document.getElementById('globalMemoPreview');
+  if(!ta)return;
+  const val=(ud&&ud['global_memo'])||'';
+  ta.value=val;
+  if(preview)preview.textContent=val?val.split('\n')[0]:'';
+  // 開閉状態を復元
+  if(localStorage.getItem('cal_memo_open')==='1'){
+    document.getElementById('globalMemoBody').style.display='block';
+    document.getElementById('globalMemoArrow').style.transform='rotate(90deg)';
+  }
+}
+function saveGlobalMemo(val){
+  const ud=getUserData();
+  ud['global_memo']=val;
+  saveUserData(ud);touchUpdated();
+  const preview=document.getElementById('globalMemoPreview');
+  if(preview)preview.textContent=val?val.split('\n')[0]:'';
+}
 
 /* ===== ダークモード ===== */
 function getDarkMode(){return localStorage.getItem('cal_dark')==='1';}
@@ -1420,6 +1461,7 @@ function buildCal(){
   // 最初のmonth-dividerテキストでstickyMonthを初期化（先頭では二重にならないよう）
   const firstDiv=document.querySelector('.month-divider');
   if(firstDiv)document.getElementById('stickyMonth').textContent=firstDiv.textContent;
+  loadGlobalMemo(getUserData());
 }
 
 // ===== Event delegation (全インタラクション) =====
@@ -1525,6 +1567,8 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('input', function(e){
     if(VIEW_PARAM)return;
     const t = e.target;
+    // 全体メモ
+    if(t.id==='globalMemoText'){saveGlobalMemo(t.value);return;}
     const row = t.closest('.user-ev-row');
     if(row && t.dataset.field === 'title'){
       // 仮行の場合は新規エントリを作成
@@ -2564,9 +2608,17 @@ function buildCalView(ud){
   }
   document.getElementById('calBody').innerHTML=html;
   setupScrollSpy();
+  // 閲覧時の全体メモ（読み取り専用）
+  const memoTa=document.getElementById('globalMemoText');
+  if(memoTa){
+    loadGlobalMemo(ud);
+    memoTa.readOnly=true;
+    memoTa.style.cursor='default';
+    // メモが空ならアコーディオン自体を隠す
+    const wrap=document.getElementById('globalMemoWrap');
+    if(wrap)wrap.style.display=(ud&&ud['global_memo'])?'':'none';
+  }
 }
-
-// ===== 年切替 =====
 let currentYear=new Date().getFullYear();
 function changeYear(delta){
   currentYear+=delta;
