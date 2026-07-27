@@ -109,7 +109,7 @@ html{background:var(--color-background-tertiary)}
 .month-sticky-icons span{flex:1;text-align:center;font-size:12px;line-height:1}
 
 /* MONTH DIVIDER */
-.month-divider{background:#1D9E75;color:#fff;padding:3px 8px;font-size:13px;font-weight:600}
+.month-divider{background:#1D9E75;color:#fff;padding:3px 8px;font-size:13px;font-weight:600;height:0;padding:0;overflow:hidden;visibility:hidden}
 
 /* DAY ROW */
 .day-row{border-bottom:0.5px solid var(--color-row-border);background:var(--color-background-primary)}
@@ -428,19 +428,20 @@ html{background:var(--color-background-tertiary)}
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
     </div>
   </div>
-  <div class="month-sticky">
-    <span class="month-sticky-label" id="stickyMonth">—</span>
-    <button id="todayBtn" onclick="scrollToToday()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;margin-right:6px;white-space:nowrap;flex-shrink:0">今日</button>
-  </div>
   <div id="globalMemoWrap">
-    <div id="globalMemoHeader" onclick="toggleGlobalMemo()" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--color-background-secondary);cursor:pointer;border-bottom:1px solid var(--color-border-tertiary);user-select:none">
-      <span id="globalMemoArrow" style="font-size:10px;color:var(--color-text-secondary);transition:transform 0.15s">▶</span>
-      <span style="font-size:12px;font-weight:600;color:var(--color-text-primary)">📌 メモ</span>
-      <span id="globalMemoPreview" style="font-size:11px;color:var(--color-text-secondary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    <div id="globalMemoHeader" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1D9E75;cursor:pointer;user-select:none">
+      <span id="globalMemoArrow" onclick="toggleGlobalMemo()" style="font-size:10px;color:#fff;transition:transform 0.15s;flex-shrink:0">▶</span>
+      <span style="font-size:13px;flex-shrink:0">📌</span>
+      <input id="globalMemoTitle" type="text" placeholder="メモ" value="メモ" style="font-size:13px;font-weight:600;color:#fff;background:transparent;border:none;outline:none;flex-shrink:0;width:auto;min-width:40px;max-width:140px;font-family:inherit">
+      <span id="globalMemoPreview" onclick="toggleGlobalMemo()" style="font-size:11px;color:rgba(255,255,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
     </div>
     <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary)">
       <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
     </div>
+  </div>
+  <div class="month-sticky">
+    <span class="month-sticky-label" id="stickyMonth">—</span>
+    <button id="todayBtn" onclick="scrollToToday()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;cursor:pointer;margin-right:6px;white-space:nowrap;flex-shrink:0">今日</button>
   </div>
   <div id="calBody"></div>
   <div id="calPanel" style="display:none;flex:1;flex-direction:column;overflow:hidden"></div>
@@ -910,9 +911,11 @@ function toggleGlobalMemo(){
 function loadGlobalMemo(ud){
   const ta=document.getElementById('globalMemoText');
   const preview=document.getElementById('globalMemoPreview');
+  const titleEl=document.getElementById('globalMemoTitle');
   if(!ta)return;
   const val=(ud&&ud['global_memo'])||'';
   ta.value=val;
+  if(titleEl)titleEl.value=(ud&&ud['global_memo_title'])||'メモ';
   if(preview)preview.textContent=val?val.split('\n')[0]:'';
   // 開閉状態を復元
   if(localStorage.getItem('cal_memo_open')==='1'){
@@ -926,6 +929,11 @@ function saveGlobalMemo(val){
   saveUserData(ud);touchUpdated();
   const preview=document.getElementById('globalMemoPreview');
   if(preview)preview.textContent=val?val.split('\n')[0]:'';
+}
+function saveGlobalMemoTitle(val){
+  const ud=getUserData();
+  ud['global_memo_title']=val;
+  saveUserData(ud);touchUpdated();
 }
 
 /* ===== ダークモード ===== */
@@ -1569,6 +1577,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const t = e.target;
     // 全体メモ
     if(t.id==='globalMemoText'){saveGlobalMemo(t.value);return;}
+    if(t.id==='globalMemoTitle'){saveGlobalMemoTitle(t.value);return;}
     const row = t.closest('.user-ev-row');
     if(row && t.dataset.field === 'title'){
       // 仮行の場合は新規エントリを作成
@@ -1612,18 +1621,12 @@ function setupScrollSpy(){
     const all=Array.from(document.querySelectorAll('.month-divider'));
     if(!stickyEl||all.length===0)return;
     const stickyBottom=stickyEl.getBoundingClientRect().bottom;
-    // 最初のdividerがまだ画面内にある間はstickyを隠す
-    const firstRect=all[0].getBoundingClientRect();
-    const firstVisible=(firstRect.top<stickyBottom+4&&firstRect.bottom>62);
-    stickyEl.style.height=firstVisible?'0':'';
-    stickyEl.style.padding=firstVisible?'0':'';
-    stickyEl.style.margin=firstVisible?'0':'';
-    stickyEl.style.minHeight=firstVisible?'0':'';
-    stickyEl.style.overflow=firstVisible?'hidden':'';
-    stickyEl.style.borderTop=firstVisible?'none':'';
-    stickyEl.style.opacity=firstVisible?'0':'1';
-    stickyEl.style.pointerEvents=firstVisible?'none':'auto';
-    // 現在の月を更新
+    // month-dividerは非表示なので常にstickyバーを表示
+    stickyEl.style.height='';
+    stickyEl.style.padding='';
+    stickyEl.style.opacity='1';
+    stickyEl.style.pointerEvents='auto';
+    // 現在の月を更新（dividerの位置で判定）
     let current=null;
     for(const d of all){
       const rect=d.getBoundingClientRect();
@@ -2614,6 +2617,8 @@ function buildCalView(ud){
     loadGlobalMemo(ud);
     memoTa.readOnly=true;
     memoTa.style.cursor='default';
+    const titleEl=document.getElementById('globalMemoTitle');
+    if(titleEl){titleEl.readOnly=true;titleEl.style.cursor='pointer';titleEl.setAttribute('onclick','toggleGlobalMemo()');}
     // メモが空ならアコーディオン自体を隠す
     const wrap=document.getElementById('globalMemoWrap');
     if(wrap)wrap.style.display=(ud&&ud['global_memo'])?'':'none';
