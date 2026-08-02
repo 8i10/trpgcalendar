@@ -109,7 +109,7 @@ html{background:var(--color-background-tertiary)}
 .month-sticky-icons span{flex:1;text-align:center;font-size:12px;line-height:1}
 
 /* MONTH DIVIDER */
-.month-divider{background:#1D9E75;color:#fff;padding:3px 8px;font-size:13px;font-weight:600;height:0;padding:0;overflow:hidden;visibility:hidden}
+.month-divider{background:#1D9E75;color:#fff;padding:3px 8px;font-size:13px;font-weight:600}
 
 /* DAY ROW */
 .day-row{border-bottom:0.5px solid var(--color-row-border);background:var(--color-background-primary)}
@@ -428,15 +428,13 @@ html{background:var(--color-background-tertiary)}
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
     </div>
   </div>
-  <div id="globalMemoWrap">
-    <div id="globalMemoHeader" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1D9E75;cursor:pointer;user-select:none">
-      <span id="globalMemoArrow" onclick="toggleGlobalMemo()" style="font-size:10px;color:#fff;transition:transform 0.15s;flex-shrink:0">▶</span>
-      <input id="globalMemoTitle" type="text" placeholder="メモ" value="メモ" style="font-size:13px;font-weight:600;color:#fff;background:transparent;border:none;outline:none;flex-shrink:0;width:auto;min-width:40px;max-width:140px;font-family:inherit">
-      <span id="globalMemoPreview" onclick="toggleGlobalMemo()" style="font-size:11px;color:rgba(255,255,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
-    </div>
-    <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary)">
-      <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
-    </div>
+  <div id="globalMemoHeader" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1D9E75;cursor:pointer;user-select:none;position:sticky;top:40px;z-index:18;border-top:1px solid rgba(255,255,255,0.2)">
+    <span id="globalMemoArrow" onclick="toggleGlobalMemo()" style="font-size:10px;color:#fff;transition:transform 0.15s;flex-shrink:0">▶</span>
+    <input id="globalMemoTitle" type="text" placeholder="メモ" value="メモ" style="font-size:13px;font-weight:600;color:#fff;background:transparent;border:none;outline:none;flex-shrink:0;width:auto;min-width:40px;max-width:140px;font-family:inherit">
+    <span id="globalMemoPreview" onclick="toggleGlobalMemo()" style="font-size:11px;color:rgba(255,255,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+  </div>
+  <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary)">
+    <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
   </div>
   <div class="month-sticky">
     <span class="month-sticky-label" id="stickyMonth">—</span>
@@ -483,8 +481,16 @@ window.addEventListener('load',function(){
 function updateStickyTop(){
   const hdr=document.querySelector('.header');
   const sticky=document.querySelector('.month-sticky');
-  if(hdr&&sticky){sticky.style.top=hdr.offsetHeight+'px';}
+  const memoHdr=document.getElementById('globalMemoHeader');
+  if(hdr&&sticky){
+    const hdrH=hdr.offsetHeight;
+    const memoH=(memoHdr&&getComputedStyle(memoHdr).display!=='none')?memoHdr.offsetHeight:0;
+    // メモ見出しのtopもヘッダー直下に合わせる
+    if(memoHdr)memoHdr.style.top=hdrH+'px';
+    sticky.style.top=(hdrH+memoH)+'px';
+  }
 }
+window.addEventListener('scroll',updateStickyTop,{passive:true});
 window.addEventListener('resize',updateStickyTop);
 window.addEventListener('load',updateStickyTop);
 // スマホ↔PC切り替え時にカレンダー再描画（メモ欄幅を正しく反映）
@@ -906,6 +912,7 @@ function toggleGlobalMemo(){
   arrow.style.transform=open?'rotate(90deg)':'';
   if(open)localStorage.setItem('cal_memo_open','1');
   else localStorage.removeItem('cal_memo_open');
+  updateStickyTop();
 }
 function loadGlobalMemo(ud){
   const ta=document.getElementById('globalMemoText');
@@ -1556,8 +1563,8 @@ document.addEventListener('DOMContentLoaded', function(){
         if(!ud['ev_'+key])ud['ev_'+key]=[];
         const newEntry={time:'',cat:'',title:'',slot:slottype};
         newEntry[field]=t.value;
-        // timeが設定された場合はslotを更新
-        if(field==='time')newEntry.slot=(!t.value||!isNightTime(t.value))?'hiru':'yoru';
+        // timeが設定された場合はslotを更新（空ならその行のslottypeを維持）
+        if(field==='time')newEntry.slot=t.value?(isNightTime(t.value)?'yoru':'hiru'):slottype;
         ud['ev_'+key].push(newEntry);
         saveUserData(ud);touchUpdated();buildCal();
         return;
@@ -1620,18 +1627,24 @@ function setupScrollSpy(){
     const all=Array.from(document.querySelectorAll('.month-divider'));
     if(!stickyEl||all.length===0)return;
     const stickyBottom=stickyEl.getBoundingClientRect().bottom;
-    // month-dividerは非表示なので常にstickyバーを表示
-    stickyEl.style.height='';
-    stickyEl.style.padding='';
-    stickyEl.style.opacity='1';
-    stickyEl.style.pointerEvents='auto';
-    // 現在の月を更新（dividerの位置で判定）
+    // 現在の月を判定
     let current=null;
     for(const d of all){
       const rect=d.getBoundingClientRect();
       if(rect.top<=stickyBottom+2)current=d;
       else break;
     }
+    // 最初のdividerがまだ画面内にある間は固定バーを隠す（二重防止）
+    const firstRect=all[0].getBoundingClientRect();
+    const firstVisible=(firstRect.top>=0&&firstRect.bottom>stickyBottom-20);
+    stickyEl.style.height=firstVisible?'0':'';
+    stickyEl.style.padding=firstVisible?'0':'';
+    stickyEl.style.margin=firstVisible?'0':'';
+    stickyEl.style.minHeight=firstVisible?'0':'';
+    stickyEl.style.overflow=firstVisible?'hidden':'';
+    stickyEl.style.borderTop=firstVisible?'none':'';
+    stickyEl.style.opacity=firstVisible?'0':'1';
+    stickyEl.style.pointerEvents=firstVisible?'none':'auto';
     if(current)document.getElementById('stickyMonth').textContent=current.textContent;
   }
 
@@ -1962,12 +1975,15 @@ function updateUserEv(key,ui,field,val){
   if(!ud['ev_'+key]||ud['ev_'+key][ui]===undefined)return;
   ud['ev_'+key][ui][field]=val;
   if(field==='time'){
-    // 時刻変更でslotも更新
-    ud['ev_'+key][ui].slot=(!val||!isNightTime(val))?'hiru':'yoru';
+    // 時刻変更でslotも更新（空にした場合は既存slotを維持）
+    let newSlot;
+    if(val){newSlot=isNightTime(val)?'yoru':'hiru';}
+    else{newSlot=ud['ev_'+key][ui].slot||'hiru';}
+    ud['ev_'+key][ui].slot=newSlot;
     const rows=document.querySelectorAll(`[data-evkey="${key}"][data-evui="${ui}"]`);
     rows.forEach(row=>{
       const ic=row.querySelector('.ev-icon');
-      if(ic)ic.className=(!val||!isNightTime(val))?'ev-icon ev-icon-hiru':'ev-icon ev-icon-yoru';
+      if(ic)ic.className=newSlot==='yoru'?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
       // チェックボックスdiv 表示/非表示
       let chkDiv=row.querySelector('.chk-wrap');
       if(val){
@@ -2619,8 +2635,11 @@ function buildCalView(ud){
     const titleEl=document.getElementById('globalMemoTitle');
     if(titleEl){titleEl.readOnly=true;titleEl.style.cursor='pointer';titleEl.setAttribute('onclick','toggleGlobalMemo()');}
     // メモが空ならアコーディオン自体を隠す
-    const wrap=document.getElementById('globalMemoWrap');
-    if(wrap)wrap.style.display=(ud&&ud['global_memo'])?'':'none';
+    const hasMemo=(ud&&ud['global_memo']);
+    const memoHdr=document.getElementById('globalMemoHeader');
+    const memoBody=document.getElementById('globalMemoBody');
+    if(memoHdr)memoHdr.style.display=hasMemo?'flex':'none';
+    if(memoBody&&!hasMemo)memoBody.style.display='none';
   }
 }
 let currentYear=new Date().getFullYear();
