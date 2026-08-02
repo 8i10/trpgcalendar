@@ -2543,7 +2543,7 @@ function buildCalView(ud){
     if(m!==prevMonth){
       if(prevMonthKey){
         const nv=(ud['note_'+prevMonthKey]||'');
-        if(nv)html+=`<div class="month-note-wrap" style="padding:5px 12px"><div style="flex:1;font-size:12px;color:var(--color-text-primary);white-space:pre-wrap;line-height:1.6">${nv.replace(/</g,'&lt;')}</div></div>`;
+        html+=`<div class="month-note-wrap" style="padding:5px 12px;min-height:14px">${nv?`<div style="flex:1;font-size:12px;color:var(--color-text-primary);white-space:pre-wrap;line-height:1.6">${nv.replace(/</g,'&lt;')}</div>`:''}</div>`;
       }
       html+=`<div class="month-divider" data-month="${monthKey}">${y}年 ${MONTH_JP[m]}</div>`;
       prevMonth=m;prevMonthKey=monthKey;
@@ -2606,7 +2606,7 @@ function buildCalView(ud){
   }
   if(prevMonthKey){
     const nv=(ud['note_'+prevMonthKey]||'');
-    if(nv)html+=`<div class="month-note-wrap" style="padding:5px 12px"><div style="flex:1;font-size:12px;color:var(--color-text-primary);white-space:pre-wrap;line-height:1.6">${nv.replace(/</g,'&lt;')}</div></div>`;
+    html+=`<div class="month-note-wrap" style="padding:5px 12px;min-height:14px">${nv?`<div style="flex:1;font-size:12px;color:var(--color-text-primary);white-space:pre-wrap;line-height:1.6">${nv.replace(/</g,'&lt;')}</div>`:''}</div>`;
   }
   document.getElementById('calBody').innerHTML=html;
   setupScrollSpy();
