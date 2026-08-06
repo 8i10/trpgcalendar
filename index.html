@@ -428,13 +428,15 @@ html{background:var(--color-background-tertiary)}
       <div onclick="doLogout();closeAvatarMenu()" style="padding:10px 16px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#e24b4a">ログアウト</div>
     </div>
   </div>
-  <div id="globalMemoHeader" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1D9E75;cursor:pointer;user-select:none;position:sticky;top:40px;z-index:18;border-top:1px solid rgba(255,255,255,0.2)">
-    <span id="globalMemoArrow" onclick="toggleGlobalMemo()" style="font-size:10px;color:#fff;transition:transform 0.15s;flex-shrink:0">▶</span>
-    <input id="globalMemoTitle" type="text" placeholder="メモ" value="メモ" style="font-size:13px;font-weight:600;color:#fff;background:transparent;border:none;outline:none;flex-shrink:0;width:auto;min-width:40px;max-width:140px;font-family:inherit">
-    <span id="globalMemoPreview" onclick="toggleGlobalMemo()" style="font-size:11px;color:rgba(255,255,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
-  </div>
-  <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary)">
-    <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
+  <div id="globalMemoSticky" style="position:sticky;top:40px;z-index:18">
+    <div id="globalMemoHeader" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1D9E75;cursor:pointer;user-select:none;border-top:1px solid rgba(255,255,255,0.2)">
+      <span id="globalMemoArrow" onclick="toggleGlobalMemo()" style="font-size:10px;color:#fff;transition:transform 0.15s;flex-shrink:0">▶</span>
+      <input id="globalMemoTitle" type="text" placeholder="メモ" value="メモ" style="font-size:13px;font-weight:600;color:#fff;background:transparent;border:none;outline:none;flex-shrink:0;width:auto;min-width:40px;max-width:140px;font-family:inherit">
+      <span id="globalMemoPreview" onclick="toggleGlobalMemo()" style="font-size:11px;color:rgba(255,255,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+    </div>
+    <div id="globalMemoBody" style="display:none;padding:8px 12px;background:var(--color-background-primary);border-bottom:1px solid var(--color-border-tertiary);max-height:40vh;overflow-y:auto">
+      <textarea id="globalMemoText" placeholder="メモを入力…" style="width:100%;box-sizing:border-box;border:1px solid var(--color-border-tertiary);border-radius:4px;background:var(--color-background-primary);color:var(--color-text-primary);font-size:12px;padding:6px;resize:vertical;min-height:60px;outline:none;font-family:inherit;line-height:1.6"></textarea>
+    </div>
   </div>
   <div class="month-sticky">
     <span class="month-sticky-label" id="stickyMonth">—</span>
@@ -481,12 +483,18 @@ window.addEventListener('load',function(){
 function updateStickyTop(){
   const hdr=document.querySelector('.header');
   const sticky=document.querySelector('.month-sticky');
+  const memoSticky=document.getElementById('globalMemoSticky');
   const memoHdr=document.getElementById('globalMemoHeader');
+  const memoBody=document.getElementById('globalMemoBody');
   if(hdr&&sticky){
     const hdrH=hdr.offsetHeight;
-    const memoH=(memoHdr&&getComputedStyle(memoHdr).display!=='none')?memoHdr.offsetHeight:0;
-    // メモ見出しのtopもヘッダー直下に合わせる
-    if(memoHdr)memoHdr.style.top=hdrH+'px';
+    if(memoSticky)memoSticky.style.top=hdrH+'px';
+    // メモ（見出し＋開いていれば本文）の高さ分、月バーを押し下げる
+    let memoH=0;
+    if(memoHdr&&getComputedStyle(memoHdr).display!=='none'){
+      memoH=memoHdr.offsetHeight;
+      if(memoBody&&memoBody.style.display!=='none')memoH+=memoBody.offsetHeight;
+    }
     sticky.style.top=(hdrH+memoH)+'px';
   }
 }
@@ -2636,10 +2644,8 @@ function buildCalView(ud){
     if(titleEl){titleEl.readOnly=true;titleEl.style.cursor='pointer';titleEl.setAttribute('onclick','toggleGlobalMemo()');}
     // メモが空ならアコーディオン自体を隠す
     const hasMemo=(ud&&ud['global_memo']);
-    const memoHdr=document.getElementById('globalMemoHeader');
-    const memoBody=document.getElementById('globalMemoBody');
-    if(memoHdr)memoHdr.style.display=hasMemo?'flex':'none';
-    if(memoBody&&!hasMemo)memoBody.style.display='none';
+    const memoSticky=document.getElementById('globalMemoSticky');
+    if(memoSticky)memoSticky.style.display=hasMemo?'':'none';
   }
 }
 let currentYear=new Date().getFullYear();
