@@ -1102,7 +1102,7 @@ async function doSyncPush(showResult=true){
   // 閲覧GistIDも同期対象に含める
   const viewGistId=localStorage.getItem('cal_view_gist:'+currentUser)||'';
   // パスワードは同期しない（ハッシュ代わりにユーザー名だけ）
-  const payload=JSON.stringify({ud,ts:Date.now(),email:currentUser,name:users[currentUser]?.name||''});
+  const payload=JSON.stringify({ud,ts:Date.now(),email:currentUser,name:users[currentUser]?.name||'',viewGistId});
   const gistId=getSyncGistId();
   setSyncIndicator('syncing');
   try{
@@ -1161,7 +1161,7 @@ async function doSyncPull(){
     // ローカルデータより新しければ上書き
     const localTs=parseInt(localStorage.getItem('cal_last_updated_ts_'+currentUser)||'0');
     // viewGistIdはタイムスタンプ問わず常に取り込む（端末間でURLを統一）
-    if(parsed.viewGistId&&!localStorage.getItem('cal_view_gist:'+currentUser)){
+    if(parsed.viewGistId){
       localStorage.setItem('cal_view_gist:'+currentUser,parsed.viewGistId);
     }
     if(parsed.ts&&parsed.ts>localTs){
