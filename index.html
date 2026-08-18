@@ -1073,24 +1073,45 @@ function scheduleSyncPush(){
   if(syncTimer)clearTimeout(syncTimer);
   syncTimer=setTimeout(()=>{
     doSyncPush(false);
-    // 閲覧用URLが発行済みなら自動で閲覧側も更新
-    const viewGist=localStorage.getItem('cal_view_gist:'+currentUser);
-    if(viewGist){autoPublishView();}
+    // 閲覧用Gistを自動更新（未発行なら自動作成）
+    autoPublishView();
   },SYNC_DEBOUNCE_MS);
 }
-// 閲覧用Gistを自動更新（アラートなし）
+// 閲覧用Gistを自動更新（アラートなし、未作成なら新規作成）
 async function autoPublishView(){
   const token=getSyncToken();
-  const gistId=localStorage.getItem('cal_view_gist:'+currentUser);
-  if(!token||!gistId)return;
+  if(!token||!currentUser)return;
+  let gistId=localStorage.getItem('cal_view_gist:'+currentUser);
   try{
     const ud=getUserData();
     const payload=JSON.stringify({ud,ts:Date.now()});
-    await fetch('https://api.github.com/gists/'+gistId,{
-      method:'PATCH',
-      headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({files:{'calendar.json':{content:payload}}})
-    });
+    if(gistId){
+      // 既存Gistを更新
+      const r=await fetch('https://api.github.com/gists/'+gistId,{
+        method:'PATCH',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({files:{'calendar.json':{content:payload}}})
+      });
+      if(r.status===404){
+        // Gistが削除されていたら再作成
+        localStorage.removeItem('cal_view_gist:'+currentUser);
+        gistId=null;
+      }
+    }
+    if(!gistId){
+      // 閲覧用Gistを新規作成
+      const r=await fetch('https://api.github.com/gists',{
+        method:'POST',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({public:false,description:'calendar data',files:{'calendar.json':{content:payload}}})
+      });
+      if(r.ok){
+        const data=await r.json();
+        localStorage.setItem('cal_view_gist:'+currentUser,data.id);
+        // 同期データにも即反映（他端末とURL共有）
+        doSyncPush(false);
+      }
+    }
   }catch(e){console.error('auto publish failed',e);}
 }
 
@@ -1299,6 +1320,10 @@ async function loginOk(name){
   buildCal();
   const tabCal=document.getElementById('tabCal');if(tabCal)tabCal.classList.add('active');
   setTimeout(scrollToToday,100);
+  // 同期設定済みで閲覧用Gist未作成なら初回作成
+  if(getSyncToken()&&!localStorage.getItem('cal_view_gist:'+currentUser)){
+    setTimeout(autoPublishView,1500);
+  }
 }
 function doLogout(){
   localStorage.removeItem('cal_session');
