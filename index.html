@@ -362,7 +362,7 @@ html{background:var(--color-background-tertiary)}
 .grid-table th{font-size:10px;font-weight:600;color:var(--color-text-secondary);padding:4px 0;text-align:center}
 .grid-table th.sun{color:#c0392b}
 .grid-table th.sat{color:#2563a8}
-.grid-cell{border:0.5px solid var(--color-row-border);vertical-align:top;height:78px;padding:2px 0 2px 0;cursor:pointer;background:var(--color-background-primary);overflow:visible;position:relative}
+.grid-cell{border:0.5px solid var(--color-row-border);vertical-align:top;height:68px;padding:2px 0 2px 0;cursor:pointer;background:var(--color-background-primary);overflow:visible;position:relative}
 .grid-cell.empty{background:var(--color-background-tertiary);cursor:default}
 .grid-cell.today{background:#d4f0e8}
 [data-theme="dark"] .grid-cell.today{background:#1d3b32}
@@ -377,7 +377,7 @@ html{background:var(--color-background-tertiary)}
 .grid-ev .ge-top{display:flex;align-items:center;gap:2px}
 .grid-ev .ge-top .ev-icon{width:7px;height:7px}
 .grid-ev .ge-time{font-weight:600;font-size:7px}
-.grid-ev .ge-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:8px}
+.grid-ev .ge-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
 .grid-ev .ge-cont{height:17px}
 .grid-ev.ge-vc{background:#E1F5EE;color:#0F6E56}
 .grid-ev.ge-tx{background:#E6F1FB;color:#185FA5}
@@ -387,10 +387,11 @@ html{background:var(--color-background-tertiary)}
 [data-theme="dark"] .grid-ev.ge-tx{background:#1f3a52;color:#7db8ed}
 [data-theme="dark"] .grid-ev.ge-vt{background:#4a3a1a;color:#e8c078}
 .grid-more{font-size:7px;font-weight:400;color:var(--color-text-secondary);float:right;padding-right:3px}
-.grid-inner{display:flex;flex-direction:column;height:74px}
-.grid-slot-yoru{margin-top:auto;padding-bottom:1px}
+.grid-inner{display:flex;flex-direction:column;height:64px}
+.grid-slot-hiru{min-height:25px}
+.grid-slot-yoru{}
 /* 帯の細枠 */
-.grid-ev{border:1px solid transparent;height:22px;box-sizing:border-box}
+.grid-ev{border:1px solid transparent;height:24px;box-sizing:border-box}
 .grid-ev.ge-vc{border-color:#b3e3d1}
 .grid-ev.ge-tx{border-color:#c2dbf3}
 .grid-ev.ge-vt{border-color:#efd9b0}
@@ -401,11 +402,12 @@ html{background:var(--color-background-tertiary)}
 .grid-ev.span-l{border-left:none}
 .grid-ev.span-r{border-right:none}
 @media(max-width:480px){
-  .grid-cell{height:66px}
-  .grid-inner{height:62px}
-  .grid-ev{height:19px}
+  .grid-cell{height:64px}
+  .grid-inner{height:60px}
+  .grid-slot-hiru{min-height:23px}
+  .grid-ev{height:22px}
   .grid-ev .ge-time{font-size:6px}
-  .grid-ev .ge-title{font-size:7px}
+  .grid-ev .ge-title{font-size:8px}
   .grid-ev .ge-top .ev-icon{width:6px;height:6px}
   .grid-ev .ge-cont{height:15px}
 }
@@ -2095,8 +2097,8 @@ function buildMonthGrid(){
     // 昼・夜に分けて表示（昼は上、夜は下に固定）
     const hiruList=evs.filter(ev=>evSlot(ev)!=='yoru');
     const yoruList=evs.filter(ev=>evSlot(ev)==='yoru');
-    const hShow=Math.min(hiruList.length, yoruList.length>0?2:3);
-    const yShow=Math.min(yoruList.length, 3-hShow);
+    const hShow=Math.min(hiruList.length, yoruList.length>0?1:2);
+    const yShow=Math.min(yoruList.length, 1);
     const hidden=evs.length-hShow-yShow;
     function renderGridEv(ev){
       const cat=ev.cat||'';
