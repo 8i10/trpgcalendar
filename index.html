@@ -353,21 +353,32 @@ html{background:var(--color-background-tertiary)}
 .tri-btn[data-state="2"]{background:#fff;border-color:#e0e0e0;color:#aaa;font-weight:400}
 
 /* ===== 月グリッド表示 ===== */
-#gridBody{display:none;padding:0 6px 20px}
+#gridBody{display:none;padding:0 0 20px}
 #gridBody.active{display:block}
 .grid-month-nav{display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 0;position:sticky;top:40px;z-index:17;background:var(--color-background-primary)}
 .grid-month-nav button{background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);color:var(--color-text-primary);font-size:16px;width:30px;height:30px;border-radius:6px;cursor:pointer;line-height:1}
 .grid-month-label{font-size:15px;font-weight:700;color:var(--color-text-primary);min-width:110px;text-align:center}
 .grid-table{width:100%;border-collapse:collapse;table-layout:fixed}
-.grid-table th{font-size:10px;font-weight:600;color:var(--color-text-secondary);padding:4px 0;text-align:center}
+.grid-table th{font-size:11px;font-weight:500;color:var(--color-text-primary);padding:6px 0;text-align:center}
 .grid-table th.sun{color:#c0392b}
 .grid-table th.sat{color:#2563a8}
-.grid-cell{border:0.5px solid var(--color-row-border);vertical-align:top;height:68px;padding:2px 0 2px 0;cursor:pointer;background:var(--color-background-primary);overflow:visible;position:relative}
+.grid-cell{border:0.5px solid var(--color-border-tertiary);vertical-align:top;height:96px;padding:2px 0 2px 0;cursor:pointer;background:var(--color-background-primary);overflow:visible;position:relative}
 .grid-cell.empty{background:var(--color-background-tertiary);cursor:default}
-.grid-cell.today{background:#d4f0e8}
-[data-theme="dark"] .grid-cell.today{background:#1d3b32}
+.grid-cell.today .gd-num{background:#222;color:#fff!important;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center}
+[data-theme="dark"] .grid-cell.today .gd-num{background:#e8e8ea;color:#17171a!important}
 .grid-cell.past .grid-daynum{opacity:0.4}
-.grid-daynum{font-size:11px;font-weight:700;color:var(--color-text-primary);line-height:1.2;padding:0 3px}
+/* 年間スクロール形式 */
+.gm-block{margin-bottom:6px}
+.gm-head{position:sticky;z-index:16;background:var(--color-background-primary)}
+.gm-title{display:flex;align-items:baseline;gap:1px;padding:10px 12px 6px;color:var(--color-text-primary)}
+.gm-year{font-size:15px;font-weight:700}
+.gm-mon{font-size:26px;font-weight:700;line-height:1;margin-left:4px}
+.gm-today{margin-left:auto;align-self:center;background:var(--color-background-secondary);border:none;border-radius:14px;padding:5px 14px;font-size:12px;color:var(--color-text-primary);cursor:pointer;font-family:inherit}
+.gm-dow{background:var(--color-background-secondary);border-top:0.5px solid var(--color-border-tertiary);border-bottom:0.5px solid var(--color-border-tertiary)}
+.grid-cell.other{background:var(--color-background-secondary);cursor:default}
+.grid-cell.other .gd-num{opacity:0.85}
+
+.grid-daynum{font-size:13px;font-weight:500;color:var(--color-text-primary);line-height:22px;height:22px;text-align:center;position:relative;margin-bottom:2px}
 .grid-cell.sun .grid-daynum,.grid-cell.holiday .grid-daynum{color:#c0392b}
 .grid-cell.sat .grid-daynum{color:#2563a8}
 .grid-cell.unavail{background:var(--color-background-secondary)}
@@ -386,8 +397,8 @@ html{background:var(--color-background-tertiary)}
 [data-theme="dark"] .grid-ev.ge-vc{background:#1d4d3e;color:#7fe3c0}
 [data-theme="dark"] .grid-ev.ge-tx{background:#1f3a52;color:#7db8ed}
 [data-theme="dark"] .grid-ev.ge-vt{background:#4a3a1a;color:#e8c078}
-.grid-more{font-size:7px;font-weight:400;color:var(--color-text-secondary);float:right;padding-right:3px}
-.grid-inner{display:flex;flex-direction:column;height:64px}
+.grid-more{font-size:8px;font-weight:400;color:var(--color-text-secondary);position:absolute;right:3px;top:0;line-height:14px}
+.grid-inner{display:flex;flex-direction:column;height:92px}
 .grid-slot-hiru{min-height:25px}
 .grid-slot-yoru{}
 /* 帯の細枠 */
@@ -402,8 +413,8 @@ html{background:var(--color-background-tertiary)}
 .grid-ev.span-l{border-left:none}
 .grid-ev.span-r{border-right:none}
 @media(max-width:480px){
-  .grid-cell{height:64px}
-  .grid-inner{height:60px}
+  .grid-cell{height:92px}
+  .grid-inner{height:88px}
   .grid-slot-hiru{min-height:23px}
   .grid-ev{height:22px}
   .grid-ev .ge-time{font-size:6px}
@@ -1040,6 +1051,7 @@ function togglePastDates(){
   }else{
     buildCal();
   }
+  if(typeof _calView!=='undefined'&&_calView==='grid')buildMonthGrid();
 }
 function updatePastToggleLabel(){
   const lbl=document.getElementById('pastToggleLabel');
@@ -2029,7 +2041,7 @@ function applyCalView(){
     if(stickyMonth)stickyMonth.style.display='none';
     if(memoSticky)memoSticky.style.display='none';
     buildMonthGrid();
-    window.scrollTo(0,0);
+    setTimeout(()=>gridScrollToMonth(TODAY.slice(0,7),false),60);
   }else{
     if(gridBody)gridBody.classList.remove('active');
     if(calBody)calBody.style.display='';
@@ -2047,91 +2059,114 @@ function gridChangeMonth(delta){
 }
 function buildMonthGrid(){
   const ud=(typeof VIEW_PARAM!=='undefined'&&VIEW_PARAM&&_lastViewUd)?_lastViewUd:getUserData();
-  const y=_gridYear, m=_gridMonth;
-  const first=new Date(y,m,1);
-  const startDow=first.getDay();
-  const daysInMonth=new Date(y,m+1,0).getDate();
-  let html='';
-  html+=`<div class="grid-month-nav">
-    <button onclick="gridChangeMonth(-1)">&#8249;</button>
-    <span class="grid-month-label">${y}年 ${MONTH_JP[m]}</span>
-    <button onclick="gridChangeMonth(1)">&#8250;</button>
-  </div>`;
-  html+='<table class="grid-table"><thead><tr>';
-  DOW.forEach((d,i)=>{html+=`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`;});
-  html+='</tr></thead><tbody><tr>';
-  for(let i=0;i<startDow;i++)html+='<td class="grid-cell empty"></td>';
-  // 各日の予定を取得・ソートする関数
+  const y=currentYear;
+  updateYearLabel();
+  const hdrEl=document.querySelector('.header');
+  const stickyTop=hdrEl?hdrEl.offsetHeight:40;
   function evKey(ev){return (ev.cat||'')+'|'+evSlot(ev)+'|'+(ev.time||'')+'|'+(ev.role||'')+'|'+(ev.title||'');}
-  function getEvs(dnum){
-    if(dnum<1||dnum>daysInMonth)return [];
-    const k=`${y}-${pad(m+1)}-${pad(dnum)}`;
-    const arr=(ud['ev_'+k]||[]).filter(ev=>ev.time||ev.title||ev.cat).slice();
-    arr.sort((a,b)=>{
-      const sa=evSlot(a)==='yoru'?1:0, sb=evSlot(b)==='yoru'?1:0;
-      if(sa!==sb)return sa-sb;
-      return (a.time||'').localeCompare(b.time||'');
-    });
-    return arr;
-  }
-  let dow=startDow;
-  for(let d=1;d<=daysInMonth;d++){
-    const key=`${y}-${pad(m+1)}-${pad(d)}`;
-    const isHol=!!HOLIDAYS[key];
-    const isToday=key===TODAY;
-    const isPast=key<TODAY;
-    const dateObj=new Date(y,m,d);
-    const serial=Math.round((dateObj-SERIAL_ORIGIN)/86400000);
-    const unavail=UNAVAIL_SERIALS.has(serial);
-    let cls='grid-cell';
-    if(dow===0||isHol)cls+=' sun';else if(dow===6)cls+=' sat';
-    if(isHol)cls+=' holiday';
-    if(isToday)cls+=' today';
-    if(isPast)cls+=' past';
-    if(unavail)cls+=' unavail';
-    const evs=getEvs(d);
-    const prevEvs=getEvs(d-1).map(evKey);
-    const nextEvs=getEvs(d+1).map(evKey);
-    const isWeekStart=(dow===0);
-    const isWeekEnd=(dow===6);
-    // 昼・夜に分けて表示（昼は上、夜は下に固定）
-    const hiruList=evs.filter(ev=>evSlot(ev)!=='yoru');
-    const yoruList=evs.filter(ev=>evSlot(ev)==='yoru');
-    const hShow=Math.min(hiruList.length, yoruList.length>0?1:2);
-    const yShow=Math.min(yoruList.length, 1);
-    const hidden=evs.length-hShow-yShow;
-    function renderGridEv(ev){
-      const cat=ev.cat||'';
-      const catCls=cat?`ge-${cat}`:'ge-none';
-      const slot=evSlot(ev);
-      const iconCls=slot==='yoru'?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
-      const timeStr=ev.time||'';
-      const title=(ev.title||'').replace(/</g,'&lt;');
-      const ek=evKey(ev);
-      // 連続判定（前日・翌日に同一属性があるか）
-      const contPrev=prevEvs.includes(ek);
-      const contNext=nextEvs.includes(ek);
-      let spanCls='';
-      if(contPrev&&!isWeekStart)spanCls+=' span-l';
-      if(contNext&&!isWeekEnd)spanCls+=' span-r';
-      // 初日（＝前日と連続でない or 週の先頭）のみ文字表示
-      const showText=(!contPrev||isWeekStart);
-      const inner=showText
-        ? `<div class="ge-top"><span class="${iconCls}"></span><span class="ge-time">${timeStr}</span></div><div class="ge-title">${title}</div>`
-        : `<div class="ge-cont">&nbsp;</div>`;
-      return `<div class="grid-ev ${catCls}${spanCls}">${inner}</div>`;
+  let html='';
+  for(let m=0;m<12;m++){
+    // 過去非表示モード：月末が今日より前の月は出さない
+    if(getHidePast()&&ymd(new Date(y,m+1,0))<TODAY)continue;
+    const startDow=new Date(y,m,1).getDay();
+    const daysInMonth=new Date(y,m+1,0).getDate();
+    function getEvs(dnum){
+      if(dnum<1||dnum>daysInMonth)return [];
+      const k=`${y}-${pad(m+1)}-${pad(dnum)}`;
+      const arr=(ud['ev_'+k]||[]).filter(ev=>ev.time||ev.title||ev.cat).slice();
+      arr.sort((a,b)=>{
+        const sa=evSlot(a)==='yoru'?1:0, sb=evSlot(b)==='yoru'?1:0;
+        if(sa!==sb)return sa-sb;
+        return (a.time||'').localeCompare(b.time||'');
+      });
+      return arr;
     }
-    const hiruHtml=hiruList.slice(0,hShow).map(renderGridEv).join('');
-    const yoruHtml=yoruList.slice(0,yShow).map(renderGridEv).join('');
-    const moreHtml=hidden>0?`<span class="grid-more">+${hidden}</span>`:'';
-    const clickAttr=VIEW_PARAM?'':` onclick="gridDayClick('${key}')"`;
-    html+=`<td class="${cls}"${clickAttr}><div class="grid-inner"><div class="grid-daynum">${d}${moreHtml}</div><div class="grid-slot-hiru">${hiruHtml}</div><div class="grid-slot-yoru">${yoruHtml}</div></div></td>`;
-    dow++;
-    if(dow>6&&d<daysInMonth){html+='</tr><tr>';dow=0;}
+    html+=`<section class="gm-block" id="gm-${y}-${pad(m+1)}">`;
+    html+=`<div class="gm-head" style="top:${stickyTop}px"><div class="gm-title"><span class="gm-year">${y}年</span><span class="gm-mon">${m+1}</span><span class="gm-year">月</span><button class="gm-today" onclick="gridScrollToToday()">今日</button></div>`;
+    html+='<table class="grid-table gm-dow"><tr>';
+    DOW.forEach((d,i)=>{html+=`<th class="${i===0?'sun':i===6?'sat':''}">${d}</th>`;});
+    html+='</tr></table></div>';
+    html+='<table class="grid-table"><tbody><tr>';
+    // 6週（42マス）固定。前月・翌月の日付はグレーで表示
+    const gridStart=new Date(y,m,1-startDow);
+    for(let i=0;i<42;i++){
+      const dt=new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+i);
+      const dow=i%7;
+      if(i>0&&dow===0)html+='</tr><tr>';
+      const key=ymd(dt);
+      const isHol=!!HOLIDAYS[key];
+      const inMonth=(dt.getMonth()===m);
+      let cls='grid-cell';
+      if(dow===0||isHol)cls+=' sun';else if(dow===6)cls+=' sat';
+      if(isHol)cls+=' holiday';
+      if(!inMonth){
+        html+=`<td class="${cls} other"><div class="grid-inner"><div class="grid-daynum"><span class="gd-num">${dt.getDate()}</span></div></div></td>`;
+        continue;
+      }
+      const d=dt.getDate();
+      const isToday=key===TODAY;
+      const isPast=key<TODAY;
+      const serial=Math.round((dt-SERIAL_ORIGIN)/86400000);
+      const unavail=UNAVAIL_SERIALS.has(serial);
+      if(isToday)cls+=' today';
+      if(isPast)cls+=' past';
+      if(unavail)cls+=' unavail';
+      const evs=getEvs(d);
+      const prevEvs=getEvs(d-1).map(evKey);
+      const nextEvs=getEvs(d+1).map(evKey);
+      const isWeekStart=(dow===0);
+      const isWeekEnd=(dow===6);
+      // 昼・夜に分けて表示（昼は上、夜は下に固定）
+      const hiruList=evs.filter(ev=>evSlot(ev)!=='yoru');
+      const yoruList=evs.filter(ev=>evSlot(ev)==='yoru');
+      const hShow=Math.min(hiruList.length, yoruList.length>0?1:2);
+      const yShow=Math.min(yoruList.length, 1);
+      const hidden=evs.length-hShow-yShow;
+      function renderGridEv(ev){
+        const cat=ev.cat||'';
+        const catCls=cat?`ge-${cat}`:'ge-none';
+        const slot=evSlot(ev);
+        const iconCls=slot==='yoru'?'ev-icon ev-icon-yoru':'ev-icon ev-icon-hiru';
+        const timeStr=ev.time||'';
+        const title=(ev.title||'').replace(/</g,'&lt;');
+        const ek=evKey(ev);
+        const contPrev=prevEvs.includes(ek);
+        const contNext=nextEvs.includes(ek);
+        let spanCls='';
+        if(contPrev&&!isWeekStart)spanCls+=' span-l';
+        if(contNext&&!isWeekEnd)spanCls+=' span-r';
+        const showText=(!contPrev||isWeekStart);
+        const inner=showText
+          ? `<div class="ge-top"><span class="${iconCls}"></span><span class="ge-time">${timeStr}</span></div><div class="ge-title">${title}</div>`
+          : `<div class="ge-cont">&nbsp;</div>`;
+        return `<div class="grid-ev ${catCls}${spanCls}">${inner}</div>`;
+      }
+      const hiruHtml=hiruList.slice(0,hShow).map(renderGridEv).join('');
+      const yoruHtml=yoruList.slice(0,yShow).map(renderGridEv).join('');
+      const moreHtml=hidden>0?`<span class="grid-more">+${hidden}</span>`:'';
+      const clickAttr=VIEW_PARAM?'':` onclick="gridDayClick('${key}')"`;
+      html+=`<td class="${cls}"${clickAttr}><div class="grid-inner"><div class="grid-daynum"><span class="gd-num">${d}</span>${moreHtml}</div><div class="grid-slot-hiru">${hiruHtml}</div><div class="grid-slot-yoru">${yoruHtml}</div></div></td>`;
+    }
+    html+='</tr></tbody></table></section>';
   }
-  while(dow<=6&&dow!==0){html+='<td class="grid-cell empty"></td>';dow++;}
-  html+='</tr></tbody></table>';
   document.getElementById('gridBody').innerHTML=html;
+}
+// 今日の月までスクロール（別の年を表示中なら今年に戻す）
+function gridScrollToToday(){
+  const ty=new Date().getFullYear();
+  if(currentYear!==ty){currentYear=ty;buildMonthGrid();}
+  gridScrollToMonth(TODAY.slice(0,7),true);
+}
+function gridScrollToMonth(ym,smooth){
+  const el=document.getElementById('gm-'+ym);
+  const hdrEl=document.querySelector('.header');
+  const off=hdrEl?hdrEl.offsetHeight:40;
+  if(el){
+    const top=el.getBoundingClientRect().top+window.scrollY-off;
+    window.scrollTo({top:Math.max(0,top),behavior:smooth?'smooth':'auto'});
+  }else{
+    window.scrollTo(0,0);
+  }
 }
 
 // 閲覧モード用：カレンダーアイコンでリスト⇔グリッド切替
@@ -2144,9 +2179,8 @@ function viewToggleCalView(){
     if(calBody)calBody.style.display='none';
     if(gridBody)gridBody.classList.add('active');
     if(memoSticky)memoSticky.style.display='none';
-    _gridYear=new Date().getFullYear();_gridMonth=new Date().getMonth();
     buildMonthGrid();
-    window.scrollTo(0,0);
+    setTimeout(()=>gridScrollToMonth(TODAY.slice(0,7),false),60);
   }else{
     if(gridBody)gridBody.classList.remove('active');
     if(calBody)calBody.style.display='';
@@ -2911,10 +2945,11 @@ function changeYear(delta){
       .then(r=>r.json())
       .then(gist=>{
         const raw=gist.files['calendar.json']&&gist.files['calendar.json'].content;
-        if(raw){const data=JSON.parse(raw);buildCalView(data.ud);}
+        if(raw){const data=JSON.parse(raw);buildCalView(data.ud);if(_calView==='grid'){buildMonthGrid();window.scrollTo(0,0);}}
       }).catch(()=>{});
   } else {
     buildCal();
+    if(_calView==='grid'){buildMonthGrid();window.scrollTo(0,0);}
   }
 }
 function updateYearLabel(){
